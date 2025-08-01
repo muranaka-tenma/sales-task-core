@@ -747,6 +747,9 @@
 <body>
     <div class="header">
         <div class="header-title">🎯 営業タスク管理 - Kanbanボード</div>
+        <div class="header-controls">
+            <button onclick="openThemeModal()" class="theme-btn" title="テーマカラー変更">🎨</button>
+        </div>
     </div>
     
     <!-- 通知テストボタン -->
@@ -1361,6 +1364,9 @@
                 editingTask.comments.push(newComment);
                 saveTasks();
                 displayComments(editingTask.comments);
+                
+                // メンション通知をチェック
+                checkMentionNotifications(commentText, currentUser, editingTask);
             }
             
             // 入力欄をクリア
@@ -1368,6 +1374,59 @@
             
             // 効果音
             playSuccessSound();
+        }
+        
+        function checkMentionNotifications(text, author, task) {
+            // @メンションを検出
+            const mentionPattern = /@(\w+[^\s]*)/g;
+            const mentions = text.match(mentionPattern);
+            
+            if (mentions) {
+                mentions.forEach(mention => {
+                    const mentionedUser = mention.substring(1); // @を除去
+                    
+                    // メンションされたユーザーが担当者リストに存在し、コメント作成者と異なる場合
+                    if (assignees.includes(mentionedUser) && mentionedUser !== author) {
+                        // デモ用: 通知を表示
+                        showNotification(
+                            '💬 メンション通知',
+                            `${author}さんが「${task.title}」であなたをメンションしました`,
+                            { 
+                                tag: `mention-${Date.now()}`,
+                                taskId: task.id,
+                                icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y="50" font-size="50">💬</text></svg>'
+                            }
+                        );
+                        
+                        console.log(`メンション通知: ${mentionedUser}さんに通知を送信しました`);
+                    }
+                });
+            }
+        }
+        
+        function checkCollaborativeTaskNotifications(task, assignedUsers) {
+            // 現在のユーザー（デモ用: 担当者フィルタの値を使用）
+            const currentUser = document.getElementById('assignee-filter')?.value || '作成者';
+            
+            // 複数の担当者が割り当てられた場合、各担当者に通知
+            if (assignedUsers && assignedUsers.length > 0) {
+                assignedUsers.forEach(user => {
+                    // 自分以外の担当者に通知（実際の実装では、ログインユーザーと比較）
+                    if (user !== currentUser) {
+                        showNotification(
+                            '👥 共同タスク割り当て',
+                            `${currentUser}さんがあなたを「${task.title}」の担当者に設定しました`,
+                            { 
+                                tag: `collab-${task.id}-${user}`,
+                                taskId: task.id,
+                                icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y="50" font-size="50">👥</text></svg>'
+                            }
+                        );
+                        
+                        console.log(`共同タスク通知: ${user}さんに通知を送信しました`);
+                    }
+                });
+            }
         }
         
         function getTimeAgo(date) {
@@ -1489,6 +1548,9 @@
                     createdAt: new Date().toISOString()
                 };
                 tasks.unshift(newTask);
+                
+                // 共同タスク作成時の通知
+                checkCollaborativeTaskNotifications(newTask, selectedAssignees);
             }
             
             saveTasks();
