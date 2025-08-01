@@ -115,8 +115,12 @@
         <div class="countdown" id="countdown">3秒後に自動で新バージョンに移動...</div>
         
         <div style="margin: 2rem 0;">
-            <a href="./task-manager-v3.html" class="btn" id="v3-btn">
-                🚀 V3を今すぐ使う！（確実に動きます）
+            <a href="./task-manager-v4.html" class="btn" id="v4-btn">
+                ✨ V4革新版を今すぐ体験！
+            </a>
+            <br>
+            <a href="./task-manager-v3.html" class="btn btn-secondary">
+                🚀 V3シンプル版
             </a>
             <br>
             <a href="./index-backup-20250801-162226.html" class="btn btn-secondary">
@@ -148,15 +152,15 @@
                 v2Btn.style.background = 'linear-gradient(135deg, #48bb78, #38a169)';
                 clearInterval(timer);
                 setTimeout(() => {
-                    window.location.href = './task-manager-v3.html';
+                    window.location.href = './task-manager-v4.html';
                 }, 500);
             }
         }, 1000);
         
         // 手動クリック時はタイマー解除
-        const v3Btn = document.getElementById('v3-btn');
-        if (v3Btn) {
-            v3Btn.addEventListener('click', () => {
+        const v4Btn = document.getElementById('v4-btn');
+        if (v4Btn) {
+            v4Btn.addEventListener('click', () => {
                 clearInterval(timer);
             });
         }
