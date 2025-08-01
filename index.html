@@ -220,6 +220,52 @@
         .task-priority.medium { background: #d69e2e; }
         .task-priority.low { background: #38a169; }
         
+        /* タスク種類別の色分け */
+        .task-card.type-visit { border-left-color: #8b5cf6; }
+        .task-card.type-document { border-left-color: #3b82f6; }
+        .task-card.type-internal { border-left-color: #f59e0b; }
+        .task-card.type-follow { border-left-color: #10b981; }
+        .task-card.type-admin { border-left-color: #6b7280; }
+        .task-card.type-meeting { border-left-color: #ef4444; }
+        
+        /* 緊急度の表示 */
+        .task-urgency {
+            padding: 0.15rem 0.45rem;
+            border-radius: 8px;
+            font-weight: 500;
+            color: white;
+            font-size: 0.7rem;
+        }
+        
+        .task-urgency.normal { background: #6b7280; }
+        .task-urgency.important { background: #f59e0b; }
+        .task-urgency.urgent { background: #ef4444; }
+        .task-urgency.critical { 
+            background: linear-gradient(45deg, #ef4444, #dc2626);
+            animation: pulse 2s infinite;
+        }
+        
+        /* 追加日表示 */
+        .task-created {
+            font-size: 0.65rem;
+            color: #9CA3AF;
+            margin-top: 0.3rem;
+        }
+        
+        /* 備考プレビュー */
+        .task-notes-preview {
+            font-size: 0.7rem;
+            color: #6b7280;
+            margin-top: 0.4rem;
+            font-style: italic;
+            line-height: 1.2;
+            max-height: 2.4em;
+            overflow: hidden;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+        }
+        
         .task-assignee {
             background: #667eea;
             color: white;
@@ -505,6 +551,74 @@
             gap: 1rem;
         }
         
+        /* マイルストーン */
+        .milestone-item {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            padding: 0.75rem;
+            margin-bottom: 0.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .milestone-item.overdue {
+            border-color: #e53e3e;
+            background: #fed7d7;
+        }
+        
+        .milestone-item.today {
+            border-color: #d69e2e;
+            background: #fef5e7;
+        }
+        
+        .milestone-item.completed {
+            background: #c6f6d5;
+            border-color: #38a169;
+            opacity: 0.7;
+        }
+        
+        .milestone-content {
+            flex: 1;
+        }
+        
+        .milestone-title {
+            font-weight: 500;
+            font-size: 0.9rem;
+            margin-bottom: 0.2rem;
+        }
+        
+        .milestone-date {
+            font-size: 0.75rem;
+            color: #6b7280;
+        }
+        
+        .milestone-actions {
+            display: flex;
+            gap: 0.3rem;
+        }
+        
+        .milestone-check {
+            background: #38a169;
+            color: white;
+            border: none;
+            padding: 0.3rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            cursor: pointer;
+        }
+        
+        .milestone-remove {
+            background: #e53e3e;
+            color: white;
+            border: none;
+            padding: 0.3rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            cursor: pointer;
+        }
+        
         @media (max-width: 600px) {
             .modal-content {
                 margin: 1rem;
@@ -586,6 +700,29 @@
                 </div>
             </div>
             
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label">タスクの種類</label>
+                    <select id="task-type" class="form-select">
+                        <option value="visit">🚶 訪問・商談</option>
+                        <option value="document">📄 書類・資料作成</option>
+                        <option value="internal">🏢 社内申請・手続き</option>
+                        <option value="follow">📞 フォロー・確認</option>
+                        <option value="admin">⚙️ 雑務・管理業務</option>
+                        <option value="meeting">👥 会議・打ち合わせ</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">緊急度</label>
+                    <select id="task-urgency" class="form-select">
+                        <option value="normal">📋 普通</option>
+                        <option value="important">📈 重要</option>
+                        <option value="urgent">⚡ 緊急</option>
+                        <option value="critical">🔥 緊急・重要</option>
+                    </select>
+                </div>
+            </div>
+            
             <button class="add-btn" onclick="addTask()">タスクを追加</button>
             <div id="success-message" class="success-message"></div>
         </div>
@@ -652,11 +789,14 @@
                 </div>
                 <div class="field-row">
                     <div class="form-group">
-                        <label class="form-label">優先度</label>
-                        <select id="modal-task-priority" class="form-select">
-                            <option value="high">🔴 最重要</option>
-                            <option value="medium">🟡 重要</option>
-                            <option value="low">🟢 通常</option>
+                        <label class="form-label">タスクの種類</label>
+                        <select id="modal-task-type" class="form-select">
+                            <option value="visit">🚶 訪問・商談</option>
+                            <option value="document">📄 書類・資料作成</option>
+                            <option value="internal">🏢 社内申請・手続き</option>
+                            <option value="follow">📞 フォロー・確認</option>
+                            <option value="admin">⚙️ 雑務・管理業務</option>
+                            <option value="meeting">👥 会議・打ち合わせ</option>
                         </select>
                     </div>
                     <div class="form-group">
@@ -664,6 +804,21 @@
                         <select id="modal-task-assignee" class="form-select">
                             <option value="">選択してください</option>
                         </select>
+                    </div>
+                </div>
+                <div class="field-row">
+                    <div class="form-group">
+                        <label class="form-label">緊急度</label>
+                        <select id="modal-task-urgency" class="form-select">
+                            <option value="normal">📋 普通</option>
+                            <option value="important">📈 重要</option>
+                            <option value="urgent">⚡ 緊急</option>
+                            <option value="critical">🔥 緊急・重要</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">作成日時</label>
+                        <input type="text" id="modal-task-created" class="form-input" readonly style="background: #f7fafc;">
                     </div>
                 </div>
             </div>
@@ -697,6 +852,19 @@
                 <div class="form-group">
                     <label class="form-label">関連ファイル・書類</label>
                     <textarea id="modal-documents" class="form-textarea" placeholder="関連する書類やファイルの情報を記載&#10;例: 提案書v2.1.pdf、契約書案.docx、見積書20241201.xlsx"></textarea>
+                </div>
+            </div>
+            
+            <div class="modal-section">
+                <div class="section-header">⏰ 中間期限・マイルストーン</div>
+                <div id="milestone-list">
+                    <!-- マイルストーンがここに表示される -->
+                </div>
+                <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem;">
+                    <input type="date" id="milestone-date" class="form-input" style="flex: 1;">
+                    <input type="time" id="milestone-time" class="form-input" style="flex: 1;">
+                    <input type="text" id="milestone-title" class="form-input" placeholder="中間期限の内容" style="flex: 2;">
+                    <button type="button" onclick="addMilestone()" style="background: #667eea; color: white; border: none; padding: 0.6rem 1rem; border-radius: 6px; font-size: 0.8rem; white-space: nowrap;">追加</button>
                 </div>
             </div>
             
@@ -826,6 +994,9 @@
             
             const deadline = new Date(`${date}T${time || '23:59'}`);
             
+            const taskType = document.getElementById('task-type').value;
+            const urgency = document.getElementById('task-urgency').value;
+            
             const newTask = {
                 id: Date.now(),
                 title: title,
@@ -834,10 +1005,13 @@
                 assignee: assignee || '未設定',
                 status: 'new',
                 createdAt: new Date().toISOString(),
+                taskType: taskType,
+                urgency: urgency,
                 contact: '',
                 email: '',
                 documents: '',
-                notes: ''
+                notes: '',
+                milestones: []
             };
             
             tasks.push(newTask);
@@ -850,6 +1024,8 @@
             document.getElementById('task-date').value = getTodayString();
             document.getElementById('task-time').value = '17:00';
             document.getElementById('task-assignee').value = '';
+            document.getElementById('task-type').value = 'visit';
+            document.getElementById('task-urgency').value = 'normal';
             
             showMessage(`✅ タスク「${title}」を追加しました！`);
         }
@@ -905,19 +1081,42 @@
                     if (task.documents) additionalIcons += ' 📎';
                     if (task.notes) additionalIcons += ' 📝';
                     
+                    // タスク種類による色分け
+                    const typeClass = task.taskType ? `type-${task.taskType}` : '';
+                    
+                    // 緊急度の表示
+                    const urgencyText = {
+                        'normal': '📋',
+                        'important': '📈',
+                        'urgent': '⚡',
+                        'critical': '🔥'
+                    }[task.urgency || 'normal'];
+                    
+                    // 備考プレビュー（最初の30文字）
+                    const notesPreview = task.notes ? task.notes.substring(0, 30) + (task.notes.length > 30 ? '...' : '') : '';
+                    
+                    // マイルストーン情報
+                    const milestoneCount = task.milestones ? task.milestones.length : 0;
+                    const milestoneIcon = milestoneCount > 0 ? ` 🎯${milestoneCount}` : '';
+                    
+                    // 作成日表示
+                    const createdDate = new Date(task.createdAt).toLocaleDateString('ja-JP');
+                    
                     return `
-                        <div class="${cardClass}" draggable="true" data-task-id="${task.id}" onclick="openTaskModal(${task.id})" style="cursor: pointer;">
-                            <div class="task-title">${task.title}${additionalIcons}</div>
+                        <div class="${cardClass} ${typeClass}" draggable="true" data-task-id="${task.id}" onclick="openTaskModal(${task.id})" style="cursor: pointer;">
+                            <div class="task-title">${task.title}${additionalIcons}${milestoneIcon}</div>
                             <div class="task-meta">
                                 <span class="${deadlineClass}">
                                     ${deadlineIcon} ${deadline.toLocaleDateString('ja-JP')} ${deadline.toLocaleTimeString('ja-JP', {hour: '2-digit', minute: '2-digit'})}
                                 </span>
-                                <span class="task-priority ${task.priority}">
-                                    ${task.priority === 'high' ? '🔴' : task.priority === 'medium' ? '🟡' : '🟢'}
+                                <span class="task-urgency ${task.urgency || 'normal'}">
+                                    ${urgencyText}
                                 </span>
                                 <span class="task-assignee">${task.assignee}</span>
                                 <button onclick="event.stopPropagation(); deleteTask(${task.id})" style="background: #e53e3e; color: white; border: none; padding: 0.2rem 0.4rem; border-radius: 6px; font-size: 0.7rem; cursor: pointer; margin-left: auto;">削除</button>
                             </div>
+                            ${notesPreview ? `<div class="task-notes-preview">"${notesPreview}"</div>` : ''}
+                            <div class="task-created">作成: ${createdDate}</div>
                         </div>
                     `;
                 }).join('');
@@ -942,6 +1141,9 @@
             document.getElementById('modal-task-date').value = new Date(task.deadline).toISOString().split('T')[0];
             document.getElementById('modal-task-time').value = new Date(task.deadline).toLocaleTimeString('en-GB', {hour: '2-digit', minute: '2-digit'});
             document.getElementById('modal-task-priority').value = task.priority;
+            document.getElementById('modal-task-type').value = task.taskType || 'visit';
+            document.getElementById('modal-task-urgency').value = task.urgency || 'normal';
+            document.getElementById('modal-task-created').value = new Date(task.createdAt).toLocaleString('ja-JP');
             
             // 担当者選択肢を更新
             const assigneeSelect = document.getElementById('modal-task-assignee');
@@ -962,6 +1164,9 @@
             document.getElementById('modal-documents').value = task.documents || '';
             document.getElementById('modal-notes').value = task.notes || '';
             
+            // マイルストーンを表示
+            renderMilestones();
+            
             // モーダルを表示
             document.getElementById('task-modal').style.display = 'block';
         }
@@ -981,6 +1186,8 @@
             currentEditingTask.deadline = new Date(`${date}T${time || '23:59'}`).toISOString();
             currentEditingTask.priority = document.getElementById('modal-task-priority').value;
             currentEditingTask.assignee = document.getElementById('modal-task-assignee').value || '未設定';
+            currentEditingTask.taskType = document.getElementById('modal-task-type').value;
+            currentEditingTask.urgency = document.getElementById('modal-task-urgency').value;
             
             // ステータスを更新
             const selectedStatus = document.querySelector('.status-option.selected');
@@ -1001,6 +1208,98 @@
             closeTaskModal();
             
             showMessage(`✅ タスク「${currentEditingTask.title}」を更新しました！`);
+        }
+        
+        // マイルストーン関連の関数
+        function addMilestone() {
+            if (!currentEditingTask) return;
+            
+            const date = document.getElementById('milestone-date').value;
+            const time = document.getElementById('milestone-time').value;
+            const title = document.getElementById('milestone-title').value.trim();
+            
+            if (!date || !title) {
+                alert('日付とタイトルを入力してください');
+                return;
+            }
+            
+            const milestone = {
+                id: Date.now(),
+                title: title,
+                deadline: new Date(`${date}T${time || '23:59'}`).toISOString(),
+                completed: false
+            };
+            
+            if (!currentEditingTask.milestones) {
+                currentEditingTask.milestones = [];
+            }
+            
+            currentEditingTask.milestones.push(milestone);
+            currentEditingTask.milestones.sort((a, b) => new Date(a.deadline) - new Date(b.deadline));
+            
+            // フォームをクリア
+            document.getElementById('milestone-date').value = '';
+            document.getElementById('milestone-time').value = '';
+            document.getElementById('milestone-title').value = '';
+            
+            renderMilestones();
+        }
+        
+        function renderMilestones() {
+            if (!currentEditingTask || !currentEditingTask.milestones) return;
+            
+            const milestoneList = document.getElementById('milestone-list');
+            
+            if (currentEditingTask.milestones.length === 0) {
+                milestoneList.innerHTML = '<div style="text-align: center; color: #6b7280; padding: 1rem; font-size: 0.9rem;">マイルストーンが設定されていません</div>';
+                return;
+            }
+            
+            milestoneList.innerHTML = currentEditingTask.milestones.map(milestone => {
+                const deadline = new Date(milestone.deadline);
+                const isOverdue = deadline < getCurrentDateTime() && !milestone.completed;
+                const isToday = isToday(milestone.deadline) && !milestone.completed;
+                
+                let itemClass = 'milestone-item';
+                if (milestone.completed) itemClass += ' completed';
+                else if (isOverdue) itemClass += ' overdue';
+                else if (isToday) itemClass += ' today';
+                
+                return `
+                    <div class="${itemClass}">
+                        <div class="milestone-content">
+                            <div class="milestone-title">${milestone.completed ? '✅ ' : ''}${milestone.title}</div>
+                            <div class="milestone-date">${deadline.toLocaleDateString('ja-JP')} ${deadline.toLocaleTimeString('ja-JP', {hour: '2-digit', minute: '2-digit'})}</div>
+                        </div>
+                        <div class="milestone-actions">
+                            ${!milestone.completed ? 
+                                `<button class="milestone-check" onclick="toggleMilestone(${milestone.id})">完了</button>` : 
+                                `<button class="milestone-check" onclick="toggleMilestone(${milestone.id})" style="background: #6b7280;">未完了</button>`
+                            }
+                            <button class="milestone-remove" onclick="removeMilestone(${milestone.id})">削除</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        function toggleMilestone(milestoneId) {
+            if (!currentEditingTask || !currentEditingTask.milestones) return;
+            
+            const milestone = currentEditingTask.milestones.find(m => m.id === milestoneId);
+            if (milestone) {
+                milestone.completed = !milestone.completed;
+                renderMilestones();
+            }
+        }
+        
+        function removeMilestone(milestoneId) {
+            if (!currentEditingTask || !currentEditingTask.milestones) return;
+            
+            if (confirm('このマイルストーンを削除しますか？')) {
+                currentEditingTask.milestones = currentEditingTask.milestones.filter(m => m.id !== milestoneId);
+                renderMilestones();
+            }
         }
         
         // ステータス選択
