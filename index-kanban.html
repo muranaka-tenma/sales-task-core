@@ -228,6 +228,80 @@
             font-size: 0.8rem;
         }
         
+        .attachment-badge {
+            background: #0079bf;
+            color: white;
+            padding: 0.15rem 0.4rem;
+            border-radius: 10px;
+            font-size: 0.65rem;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.2rem;
+        }
+        
+        .file-preview {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+        }
+        
+        .file-preview-item {
+            background: #f4f5f7;
+            border: 1px solid #dfe1e6;
+            border-radius: 3px;
+            padding: 0.3rem;
+            font-size: 0.7rem;
+            color: #5e6c84;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            max-width: 100px;
+            text-align: center;
+        }
+        
+        .file-preview-item:hover {
+            background: #ebecf0;
+            border-color: #0079bf;
+        }
+        
+        .file-preview-thumbnail {
+            width: 40px;
+            height: 40px;
+            object-fit: cover;
+            border-radius: 2px;
+            margin-bottom: 0.2rem;
+        }
+        
+        .file-drop-zone {
+            border: 2px dashed #dfe1e6;
+            border-radius: 3px;
+            padding: 1rem;
+            text-align: center;
+            color: #5e6c84;
+            transition: all 0.2s ease;
+            margin-top: 0.5rem;
+        }
+        
+        .file-drop-zone.drag-over {
+            border-color: #0079bf;
+            background: rgba(0, 121, 191, 0.05);
+            color: #0079bf;
+        }
+        
+        .notification-test {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #0079bf;
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 5px;
+            cursor: pointer;
+            z-index: 1001;
+            font-size: 0.8rem;
+        }
+        
         /* ドロップゾーン */
         .column-content.drag-over {
             background: rgba(0, 121, 191, 0.1);
@@ -375,6 +449,11 @@
         <div class="header-title">🎯 営業タスク管理 - Kanbanボード</div>
     </div>
     
+    <!-- 通知テストボタン -->
+    <div class="notification-test" onclick="testNotification()" title="通知テスト">
+        🔔 通知テスト
+    </div>
+    
     <!-- 統計バー -->
     <div class="stats-bar">
         <div class="stat-item stat-overdue">
@@ -448,6 +527,9 @@
                 <div class="form-group">
                     <label class="form-label">添付ファイル</label>
                     <input type="file" class="form-input" id="task-files-input" multiple accept="*/*">
+                    <div class="file-drop-zone" id="file-drop-zone">
+                        📁 ここにファイルをドラッグ&ドロップ または 上記ボタンで選択
+                    </div>
                     <div id="attached-files-list" style="margin-top: 0.5rem;"></div>
                 </div>
                 
@@ -562,15 +644,65 @@
             const container = document.getElementById('attached-files-list');
             container.innerHTML = '';
             
+            if (attachments.length === 0) return;
+            
+            const previewDiv = document.createElement('div');
+            previewDiv.className = 'file-preview';
+            
             attachments.forEach((file, index) => {
-                const fileDiv = document.createElement('div');
-                fileDiv.style.cssText = 'display: flex; align-items: center; gap: 0.5rem; padding: 0.3rem; background: #f4f5f7; border-radius: 3px; margin-bottom: 0.3rem;';
-                fileDiv.innerHTML = `
-                    <span style="font-size: 0.8rem;">📎 ${file.name}</span>
-                    <button type="button" onclick="removeAttachment(${index})" style="background: #e53e3e; color: white; border: none; padding: 0.2rem 0.4rem; border-radius: 3px; font-size: 0.7rem; cursor: pointer;">削除</button>
-                `;
-                container.appendChild(fileDiv);
+                const fileItem = document.createElement('div');
+                fileItem.className = 'file-preview-item';
+                fileItem.onclick = () => previewFile(file, index);
+                
+                // ファイルタイプに応じたプレビュー
+                if (file.type && file.type.startsWith('image/') && file.dataUrl) {
+                    fileItem.innerHTML = `
+                        <img src="${file.dataUrl}" class="file-preview-thumbnail" alt="${file.name}">
+                        <div style="font-size: 0.6rem; margin-top: 0.2rem;">${file.name.length > 12 ? file.name.substring(0, 12) + '...' : file.name}</div>
+                        <button type="button" onclick="event.stopPropagation(); removeAttachment(${index})" style="background: #e53e3e; color: white; border: none; padding: 0.1rem 0.3rem; border-radius: 2px; font-size: 0.6rem; cursor: pointer; margin-top: 0.2rem;">削除</button>
+                    `;
+                } else {
+                    const fileIcon = getFileIcon(file.type);
+                    fileItem.innerHTML = `
+                        <div style="font-size: 1.5rem; margin-bottom: 0.2rem;">${fileIcon}</div>
+                        <div style="font-size: 0.6rem; margin-bottom: 0.2rem;">${file.name.length > 12 ? file.name.substring(0, 12) + '...' : file.name}</div>
+                        <button type="button" onclick="event.stopPropagation(); removeAttachment(${index})" style="background: #e53e3e; color: white; border: none; padding: 0.1rem 0.3rem; border-radius: 2px; font-size: 0.6rem; cursor: pointer;">削除</button>
+                    `;
+                }
+                
+                previewDiv.appendChild(fileItem);
             });
+            
+            container.appendChild(previewDiv);
+        }
+        
+        function getFileIcon(fileType) {
+            if (!fileType) return '📄';
+            if (fileType.startsWith('image/')) return '🖼️';
+            if (fileType.includes('pdf')) return '📕';
+            if (fileType.includes('word') || fileType.includes('document')) return '📝';
+            if (fileType.includes('excel') || fileType.includes('spreadsheet')) return '📊';
+            if (fileType.includes('powerpoint') || fileType.includes('presentation')) return '📈';
+            if (fileType.includes('zip') || fileType.includes('rar')) return '🗜️';
+            return '📄';
+        }
+        
+        function previewFile(file, index) {
+            if (file.dataUrl && file.type.startsWith('image/')) {
+                // 画像プレビュー
+                const modal = document.createElement('div');
+                modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 2000; display: flex; align-items: center; justify-content: center; cursor: pointer;';
+                modal.onclick = () => document.body.removeChild(modal);
+                
+                const img = document.createElement('img');
+                img.src = file.dataUrl;
+                img.style.cssText = 'max-width: 90%; max-height: 90%; object-fit: contain;';
+                
+                modal.appendChild(img);
+                document.body.appendChild(modal);
+            } else {
+                alert(`ファイル: ${file.name}\nサイズ: ${(file.size / 1024).toFixed(1)}KB\nタイプ: ${file.type || '不明'}`);
+            }
         }
         
         function removeAttachment(index) {
@@ -580,7 +712,7 @@
             }
         }
         
-        function saveTask(event) {
+        async function saveTask(event) {
             event.preventDefault();
             
             const title = document.getElementById('task-title-input').value.trim();
@@ -615,21 +747,42 @@
             // 添付ファイル処理
             const attachments = [];
             if (fileInput.files.length > 0) {
-                for (let i = 0; i < fileInput.files.length; i++) {
-                    const file = fileInput.files[i];
-                    // ファイルサイズ制限 (5MB)
-                    if (file.size > 5 * 1024 * 1024) {
-                        alert(`ファイル "${file.name}" が大きすぎます（5MB以下にしてください）`);
-                        return;
-                    }
-                    
-                    // ファイル情報を保存（実際のファイルデータは保存しない）
-                    attachments.push({
-                        name: file.name,
-                        size: file.size,
-                        type: file.type,
-                        lastModified: file.lastModified
+                const fileProcessingPromises = Array.from(fileInput.files).map(file => {
+                    return new Promise((resolve, reject) => {
+                        // ファイルサイズ制限 (5MB)
+                        if (file.size > 5 * 1024 * 1024) {
+                            reject(`ファイル "${file.name}" が大きすぎます（5MB以下にしてください）`);
+                            return;
+                        }
+                        
+                        const fileInfo = {
+                            name: file.name,
+                            size: file.size,
+                            type: file.type,
+                            lastModified: file.lastModified
+                        };
+                        
+                        // 画像の場合はプレビュー用のデータURLを生成
+                        if (file.type.startsWith('image/')) {
+                            const reader = new FileReader();
+                            reader.onload = (e) => {
+                                fileInfo.dataUrl = e.target.result;
+                                resolve(fileInfo);
+                            };
+                            reader.onerror = () => resolve(fileInfo);
+                            reader.readAsDataURL(file);
+                        } else {
+                            resolve(fileInfo);
+                        }
                     });
+                });
+                
+                try {
+                    const processedFiles = await Promise.all(fileProcessingPromises);
+                    attachments.push(...processedFiles);
+                } catch (error) {
+                    alert(error);
+                    return;
                 }
             }
             
@@ -850,7 +1003,7 @@
                     ${task.memo ? `<div class="task-memo">${task.memo}</div>` : ''}
                     <div class="task-badges">
                         ${task.memo ? '<span class="attachment-icon">📝</span>' : ''}
-                        ${task.attachments && task.attachments.length > 0 ? `<span class="attachment-icon">📎 ${task.attachments.length}</span>` : ''}
+                        ${task.attachments && task.attachments.length > 0 ? `<span class="attachment-badge">${task.attachments.length}</span>` : ''}
                         <span style="font-size: 0.7rem; color: #5e6c84;">👤 ${task.assignee}</span>
                     </div>
                 </div>
@@ -879,7 +1032,21 @@
                 Notification.requestPermission().then(permission => {
                     notificationPermission = (permission === 'granted');
                     console.log('通知許可:', notificationPermission);
+                    
+                    // 許可が取れた場合はテスト通知を表示
+                    if (notificationPermission) {
+                        showNotification('🎯 通知設定完了', 'タスクの期限通知が有効になりました！');
+                    }
                 });
+            }
+        }
+        
+        function testNotification() {
+            if (notificationPermission) {
+                showNotification('🔔 テスト通知', 'これはテスト通知です。通知機能は正常に動作しています！');
+            } else {
+                alert('通知が許可されていません。ブラウザの設定で通知を許可してください。');
+                requestNotificationPermission();
             }
         }
         
@@ -912,7 +1079,7 @@
                         `「${task.title}」の期限が過ぎています！`,
                         { tag: `overdue-${task.id}` }
                     );
-                    task.overduteNotified = true;
+                    task.overdueNotified = true;
                 }
                 // 3時間前通知
                 else if (timeUntilDeadline > 0 && timeUntilDeadline <= 3 * 60 * 60 * 1000 && !task.threeHourNotified) {
@@ -985,6 +1152,55 @@
             }
         });
         
+        // ファイルドラッグ&ドロップ機能
+        function setupFileDropZone() {
+            const dropZone = document.getElementById('file-drop-zone');
+            const fileInput = document.getElementById('task-files-input');
+            
+            if (!dropZone || !fileInput) return;
+            
+            dropZone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                dropZone.classList.add('drag-over');
+            });
+            
+            dropZone.addEventListener('dragleave', (e) => {
+                e.preventDefault();
+                dropZone.classList.remove('drag-over');
+            });
+            
+            dropZone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dropZone.classList.remove('drag-over');
+                
+                const files = Array.from(e.dataTransfer.files);
+                if (files.length > 0) {
+                    // FileListオブジェクトを作成
+                    const dt = new DataTransfer();
+                    // 既存のファイルも追加
+                    Array.from(fileInput.files).forEach(file => dt.items.add(file));
+                    // 新しいファイルを追加
+                    files.forEach(file => dt.items.add(file));
+                    
+                    fileInput.files = dt.files;
+                    
+                    // ファイル数を表示
+                    dropZone.innerHTML = `📁 ${dt.files.length}個のファイルが選択されています`;
+                    
+                    playSuccessSound();
+                }
+            });
+            
+            // ファイル選択時の表示更新
+            fileInput.addEventListener('change', () => {
+                if (fileInput.files.length > 0) {
+                    dropZone.innerHTML = `📁 ${fileInput.files.length}個のファイルが選択されています`;
+                } else {
+                    dropZone.innerHTML = '📁 ここにファイルをドラッグ&ドロップ または 上記ボタンで選択';
+                }
+            });
+        }
+        
         // 担当者選択の変更イベント
         document.addEventListener('DOMContentLoaded', () => {
             const assigneeSelect = document.getElementById('task-assignee-input');
@@ -1007,6 +1223,9 @@
                     }
                 });
             }
+            
+            // ファイルドロップゾーンを設定
+            setupFileDropZone();
         });
         
         // 初期化実行
