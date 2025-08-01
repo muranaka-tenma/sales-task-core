@@ -794,9 +794,11 @@
                 editingTask.assignee = assignee || '未設定';
                 editingTask.memo = memo;
                 
-                // 新しい添付ファイルを既存のものに追加
-                if (!editingTask.attachments) editingTask.attachments = [];
-                editingTask.attachments.push(...attachments);
+                // 新しい添付ファイルがある場合のみ追加
+                if (attachments.length > 0) {
+                    if (!editingTask.attachments) editingTask.attachments = [];
+                    editingTask.attachments.push(...attachments);
+                }
             } else {
                 // 新規作成
                 const targetColumn = document.getElementById('task-modal').dataset.targetColumn;
@@ -826,6 +828,16 @@
         function closeModal() {
             document.getElementById('task-modal').classList.remove('show');
             editingTask = null;
+            
+            // ファイル入力をクリア
+            const fileInput = document.getElementById('task-files-input');
+            const dropZone = document.getElementById('file-drop-zone');
+            if (fileInput) {
+                fileInput.value = '';
+            }
+            if (dropZone) {
+                dropZone.innerHTML = '📁 ここにファイルをドラッグ&ドロップ または 上記ボタンで選択';
+            }
         }
         
         function deleteTask(taskId) {
@@ -1052,11 +1064,22 @@
         
         function showNotification(title, body, options = {}) {
             if (notificationPermission && 'Notification' in window) {
-                new Notification(title, {
+                const notification = new Notification(title, {
                     body: body,
                     icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y="50" font-size="50">🎯</text></svg>',
                     ...options
                 });
+                
+                // タスクIDが指定されている場合はクリックでそのタスクを開く
+                if (options.taskId) {
+                    notification.onclick = () => {
+                        window.focus(); // ブラウザウィンドウをアクティブに
+                        editTask(options.taskId); // タスクモーダルを開く
+                        notification.close();
+                    };
+                }
+                
+                return notification;
             }
         }
         
@@ -1077,7 +1100,7 @@
                     showNotification(
                         '🚨 期限切れタスク',
                         `「${task.title}」の期限が過ぎています！`,
-                        { tag: `overdue-${task.id}` }
+                        { tag: `overdue-${task.id}`, taskId: task.id }
                     );
                     task.overdueNotified = true;
                 }
@@ -1086,7 +1109,7 @@
                     showNotification(
                         '⚠️ 期限間近',
                         `「${task.title}」の期限まで3時間です`,
-                        { tag: `threehour-${task.id}` }
+                        { tag: `threehour-${task.id}`, taskId: task.id }
                     );
                     task.threeHourNotified = true;
                 }
@@ -1095,7 +1118,7 @@
                     showNotification(
                         '📅 期限予告',
                         `「${task.title}」の期限まで1日です`,
-                        { tag: `oneday-${task.id}` }
+                        { tag: `oneday-${task.id}`, taskId: task.id }
                     );
                     task.oneDayNotified = true;
                 }
