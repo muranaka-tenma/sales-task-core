@@ -114,33 +114,31 @@
         /* フローキャンバス */
         .flow-canvas {
             position: relative;
-            height: 600px;
+            min-height: 400px;
             background: 
                 radial-gradient(circle, #e2e8f0 1px, transparent 1px),
                 linear-gradient(90deg, rgba(226, 232, 240, 0.3) 1px, transparent 1px),
                 linear-gradient(0deg, rgba(226, 232, 240, 0.3) 1px, transparent 1px);
             background-size: 20px 20px;
-            cursor: crosshair;
-            overflow: hidden;
+            padding: 20px;
         }
         
         /* フェーズウィンドウ */
         .phase-window {
-            position: absolute;
+            position: relative;
+            display: inline-block;
+            vertical-align: top;
             background: white;
             border-radius: 12px;
             box-shadow: 0 4px 16px rgba(0,0,0,0.1);
-            border: 1px solid #e2e8f0;
+            border: 2px solid #667eea;
             padding: 1rem;
+            margin: 1rem;
             min-width: 200px;
-            min-height: 120px;
+            min-height: 250px;
             cursor: move;
             user-select: none;
             transition: all 0.15s ease;
-            z-index: 10;
-            /* デバッグ用：明確に見えるように */
-            border: 2px solid #667eea !important;
-            background: white !important;
         }
         
         .phase-window:hover {
@@ -785,14 +783,10 @@
         function createPhaseElement(phase) {
             const div = document.createElement('div');
             div.className = 'phase-window';
-            div.style.left = `${Math.max(10, phase.x)}px`;
-            div.style.top = `${Math.max(10, phase.y)}px`;
-            div.style.position = 'absolute';
-            div.style.zIndex = '10';
             div.draggable = true;
             
             // デバッグ用ログ
-            console.log(`Creating phase: ${phase.name} at (${phase.x}, ${phase.y})`);
+            console.log(`Creating phase: ${phase.name}`);
             
             const phaseTasks = tasks.filter(task => task.phaseId === phase.id);
             const taskCount = phaseTasks.length;
