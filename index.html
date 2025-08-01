@@ -670,6 +670,13 @@
                     </select>
                 </span>
             </div>
+            <div class="stat-item">
+                <span>🔔 
+                    <button id="notification-toggle" onclick="toggleNotifications()" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; border-radius: 6px; padding: 0.2rem 0.5rem; font-size: 0.8rem; cursor: pointer;">
+                        通知OFF
+                    </button>
+                </span>
+            </div>
         </div>
     </div>
     
@@ -905,6 +912,7 @@
         let currentEditingTask = null;
         let currentUser = localStorage.getItem('currentUser') || '田中部長';
         let userFilter = 'all';
+        let notificationsEnabled = localStorage.getItem('notificationsEnabled') === 'true';
         
         // 現在の日時を取得
         function getCurrentDateTime() {
@@ -925,6 +933,56 @@
         // 今日の日付文字列を取得
         function getTodayString() {
             return new Date().toISOString().split('T')[0];
+        }
+        
+        // 通知機能
+        async function requestNotificationPermission() {
+            if ('Notification' in window) {
+                const permission = await Notification.requestPermission();
+                return permission === 'granted';
+            }
+            return false;
+        }
+        
+        function showNotification(title, options = {}) {
+            if (!notificationsEnabled || !('Notification' in window) || Notification.permission !== 'granted') {
+                return;
+            }
+            
+            const notification = new Notification(title, {
+                icon: '🎯',
+                badge: '🎯',
+                ...options
+            });
+            
+            // 5秒後に自動で閉じる
+            setTimeout(() => notification.close(), 5000);
+            
+            return notification;
+        }
+        
+        async function toggleNotifications() {
+            const button = document.getElementById('notification-toggle');
+            
+            if (!notificationsEnabled) {
+                const granted = await requestNotificationPermission();
+                if (granted) {
+                    notificationsEnabled = true;
+                    localStorage.setItem('notificationsEnabled', 'true');
+                    button.textContent = '通知ON';
+                    button.style.background = 'rgba(34, 197, 94, 0.8)';
+                    showNotification('🎯 通知が有効になりました', {
+                        body: '新しいタスクが割り当てられた時に通知します'
+                    });
+                } else {
+                    alert('通知を有効にするには、ブラウザの設定で通知を許可してください。');
+                }
+            } else {
+                notificationsEnabled = false;
+                localStorage.setItem('notificationsEnabled', 'false');
+                button.textContent = '通知OFF';
+                button.style.background = 'rgba(255,255,255,0.2)';
+            }
         }
         
         // 成功メッセージを表示
@@ -1038,6 +1096,14 @@
             saveTasks();
             renderTasks();
             updateStats();
+            
+            // 自分宛てのタスクが追加された場合の通知
+            if (newTask.assignee === currentUser) {
+                showNotification('🎯 新しいタスクが追加されました', {
+                    body: `${newTask.title}\n期限: ${new Date(newTask.deadline).toLocaleDateString('ja-JP')}`,
+                    tag: 'new-task'
+                });
+            }
             
             // フォームをクリア
             document.getElementById('task-title').value = '';
@@ -1235,11 +1301,23 @@
             currentEditingTask.documents = document.getElementById('modal-documents').value.trim();
             currentEditingTask.notes = document.getElementById('modal-notes').value.trim();
             
+            // 担当者が変更された場合の通知
+            const originalAssignee = tasks.find(t => t.id === currentEditingTask.id).assignee;
+            const newAssignee = currentEditingTask.assignee;
+            
             // 保存と再描画
             saveTasks();
             renderTasks();
             updateStats();
             closeTaskModal();
+            
+            // 担当者変更通知
+            if (originalAssignee !== newAssignee && newAssignee !== currentUser && newAssignee !== '未設定') {
+                showNotification('🎯 タスクが割り当てられました', {
+                    body: `${currentEditingTask.title}\n担当者: ${newAssignee}`,
+                    tag: 'task-assigned'
+                });
+            }
             
             showMessage(`✅ タスク「${currentEditingTask.title}」を更新しました！`);
         }
@@ -1433,6 +1511,22 @@
             updateStats();
         }
         
+        // 期限切れタスクの定期チェック
+        function checkOverdueTasks() {
+            const overdueTasks = tasks.filter(t => 
+                t.assignee === currentUser && 
+                t.status !== 'completed' && 
+                isOverdue(t.deadline)
+            );
+            
+            if (overdueTasks.length > 0) {
+                showNotification(`🚨 期限切れタスク ${overdueTasks.length}件`, {
+                    body: `最も古い期限切れ: ${overdueTasks[0].title}`,
+                    tag: 'overdue-reminder'
+                });
+            }
+        }
+        
         // 初期化
         function init() {
             document.getElementById('task-date').value = getTodayString();
@@ -1440,6 +1534,13 @@
             updateAssigneeSelect();
             renderTasks();
             updateStats();
+            
+            // 通知ボタンの初期状態設定
+            const notificationButton = document.getElementById('notification-toggle');
+            if (notificationsEnabled) {
+                notificationButton.textContent = '通知ON';
+                notificationButton.style.background = 'rgba(34, 197, 94, 0.8)';
+            }
             
             // ユーザーフィルタのイベントリスナー
             document.getElementById('user-filter').addEventListener('change', changeUserFilter);
@@ -1458,11 +1559,17 @@
                 }
             });
             
-            // 定期更新
+            // 定期更新（1分ごと）
             setInterval(() => {
                 renderTasks();
                 updateStats();
             }, 60000);
+            
+            // 期限切れチェック（10分ごと）
+            setInterval(checkOverdueTasks, 600000);
+            
+            // 初回期限切れチェック（5秒後）
+            setTimeout(checkOverdueTasks, 5000);
         }
         
         init();
