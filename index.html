@@ -266,6 +266,16 @@
             -webkit-box-orient: vertical;
         }
         
+        /* 他ユーザーのタスク */
+        .other-user-task {
+            opacity: 0.75;
+            border: 2px solid #e5e7eb;
+        }
+        
+        .other-user-task .task-assignee {
+            background: #9ca3af;
+        }
+        
         .task-assignee {
             background: #667eea;
             color: white;
@@ -652,6 +662,14 @@
             <div class="stat-item">
                 <span>📊 全タスク: <strong id="total-count">0</strong>件</span>
             </div>
+            <div class="stat-item">
+                <span>👤 表示: 
+                    <select id="user-filter" style="background: rgba(255,255,255,0.2); border: 1px solid rgba(255,255,255,0.3); color: white; border-radius: 6px; padding: 0.2rem 0.5rem; font-size: 0.8rem;">
+                        <option value="all">全員</option>
+                        <option value="self">自分のみ</option>
+                    </select>
+                </span>
+            </div>
         </div>
     </div>
     
@@ -885,6 +903,8 @@
         let tasks = JSON.parse(localStorage.getItem('kanbanTasks') || '[]');
         let assignees = JSON.parse(localStorage.getItem('assigneeList') || '["田中部長", "山田課長", "佐藤主任", "鈴木係長"]');
         let currentEditingTask = null;
+        let currentUser = localStorage.getItem('currentUser') || '田中部長';
+        let userFilter = 'all';
         
         // 現在の日時を取得
         function getCurrentDateTime() {
@@ -1053,7 +1073,12 @@
             
             statuses.forEach(status => {
                 const zone = document.getElementById(`zone-${status}`);
-                const statusTasks = tasks.filter(t => t.status === status);
+                let statusTasks = tasks.filter(t => t.status === status);
+                
+                // ユーザーフィルタリング
+                if (userFilter === 'self') {
+                    statusTasks = statusTasks.filter(t => t.assignee === currentUser);
+                }
                 
                 zone.innerHTML = statusTasks.map(task => {
                     const deadline = new Date(task.deadline);
@@ -1081,6 +1106,11 @@
                     if (task.documents) additionalIcons += ' 📎';
                     if (task.notes) additionalIcons += ' 📝';
                     
+                    // 添付ファイルありアイコン（書類情報がある場合）
+                    if (task.documents && task.documents.trim()) {
+                        additionalIcons += ' 📂';
+                    }
+                    
                     // タスク種類による色分け
                     const typeClass = task.taskType ? `type-${task.taskType}` : '';
                     
@@ -1102,8 +1132,12 @@
                     // 作成日表示
                     const createdDate = new Date(task.createdAt).toLocaleDateString('ja-JP');
                     
+                    // 他ユーザーのタスクかどうかの判定と色分け
+                    const isOwnTask = task.assignee === currentUser;
+                    const ownershipClass = !isOwnTask && userFilter === 'all' ? ' other-user-task' : '';
+                    
                     return `
-                        <div class="${cardClass} ${typeClass}" draggable="true" data-task-id="${task.id}" onclick="openTaskModal(${task.id})" style="cursor: pointer;">
+                        <div class="${cardClass} ${typeClass}${ownershipClass}" draggable="true" data-task-id="${task.id}" onclick="openTaskModal(${task.id})" style="cursor: pointer;">
                             <div class="task-title">${task.title}${additionalIcons}${milestoneIcon}</div>
                             <div class="task-meta">
                                 <span class="${deadlineClass}">
@@ -1373,15 +1407,30 @@
         
         // 統計を更新
         function updateStats() {
-            const overdueCount = tasks.filter(t => t.status !== 'completed' && isOverdue(t.deadline)).length;
-            const todayCount = tasks.filter(t => t.status !== 'completed' && isToday(t.deadline)).length;
-            const completedCount = tasks.filter(t => t.status === 'completed').length;
-            const totalCount = tasks.length;
+            let filteredTasks = tasks;
+            
+            // ユーザーフィルタリング適用
+            if (userFilter === 'self') {
+                filteredTasks = tasks.filter(t => t.assignee === currentUser);
+            }
+            
+            const overdueCount = filteredTasks.filter(t => t.status !== 'completed' && isOverdue(t.deadline)).length;
+            const todayCount = filteredTasks.filter(t => t.status !== 'completed' && isToday(t.deadline)).length;
+            const completedCount = filteredTasks.filter(t => t.status === 'completed').length;
+            const totalCount = filteredTasks.length;
             
             document.getElementById('overdue-count').textContent = overdueCount;
             document.getElementById('today-count').textContent = todayCount;
             document.getElementById('completed-count').textContent = completedCount;
             document.getElementById('total-count').textContent = totalCount;
+        }
+        
+        // ユーザーフィルタ変更
+        function changeUserFilter() {
+            const filterSelect = document.getElementById('user-filter');
+            userFilter = filterSelect.value;
+            renderTasks();
+            updateStats();
         }
         
         // 初期化
@@ -1391,6 +1440,9 @@
             updateAssigneeSelect();
             renderTasks();
             updateStats();
+            
+            // ユーザーフィルタのイベントリスナー
+            document.getElementById('user-filter').addEventListener('change', changeUserFilter);
             
             // Enter キーでタスク追加
             document.getElementById('task-title').addEventListener('keypress', function(e) {
