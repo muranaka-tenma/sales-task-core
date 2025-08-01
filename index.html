@@ -366,6 +366,160 @@
             align-items: center;
             justify-content: center;
         }
+        
+        /* モーダル */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 2000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(4px);
+        }
+        
+        .modal-content {
+            background: white;
+            margin: 2rem auto;
+            padding: 2rem;
+            border-radius: 16px;
+            width: 90%;
+            max-width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+            position: relative;
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            border-bottom: 1px solid #e2e8f0;
+            padding-bottom: 1rem;
+        }
+        
+        .modal-title {
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: #1a202c;
+        }
+        
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: #4a5568;
+            padding: 0.5rem;
+            border-radius: 8px;
+            transition: background-color 0.2s;
+        }
+        
+        .close-btn:hover {
+            background: #f7fafc;
+        }
+        
+        .modal-section {
+            margin-bottom: 1.5rem;
+        }
+        
+        .section-header {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #2d3748;
+            margin-bottom: 0.75rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .form-textarea {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-family: inherit;
+            resize: vertical;
+            min-height: 80px;
+        }
+        
+        .form-textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        .status-selector {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 0.5rem;
+        }
+        
+        .status-option {
+            padding: 0.75rem;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+        
+        .status-option:hover {
+            border-color: #cbd5e0;
+        }
+        
+        .status-option.selected {
+            border-color: #667eea;
+            background: rgba(102, 126, 234, 0.1);
+            color: #667eea;
+        }
+        
+        .save-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 1rem 2rem;
+            font-weight: 600;
+            font-size: 1rem;
+            cursor: pointer;
+            width: 100%;
+            transition: all 0.2s ease;
+        }
+        
+        .save-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+        }
+        
+        .field-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+        
+        @media (max-width: 600px) {
+            .modal-content {
+                margin: 1rem;
+                width: calc(100% - 2rem);
+                padding: 1.5rem;
+            }
+            
+            .field-row {
+                grid-template-columns: 1fr;
+            }
+            
+            .status-selector {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
     </style>
 </head>
 <body>
@@ -472,10 +626,97 @@
         </div>
     </div>
     
+    <!-- タスク詳細編集モーダル -->
+    <div id="task-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">タスク詳細編集</h2>
+                <button class="close-btn" onclick="closeTaskModal()">&times;</button>
+            </div>
+            
+            <div class="modal-section">
+                <div class="section-header">📝 基本情報</div>
+                <div class="form-group">
+                    <label class="form-label">タスク名</label>
+                    <input type="text" id="modal-task-title" class="form-input">
+                </div>
+                <div class="field-row">
+                    <div class="form-group">
+                        <label class="form-label">期限日</label>
+                        <input type="date" id="modal-task-date" class="form-input">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">期限時刻</label>
+                        <input type="time" id="modal-task-time" class="form-input">
+                    </div>
+                </div>
+                <div class="field-row">
+                    <div class="form-group">
+                        <label class="form-label">優先度</label>
+                        <select id="modal-task-priority" class="form-select">
+                            <option value="high">🔴 最重要</option>
+                            <option value="medium">🟡 重要</option>
+                            <option value="low">🟢 通常</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">担当者</label>
+                        <select id="modal-task-assignee" class="form-select">
+                            <option value="">選択してください</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="modal-section">
+                <div class="section-header">📊 ステータス変更</div>
+                <div class="status-selector" id="status-selector">
+                    <div class="status-option" data-status="new">📋 新規</div>
+                    <div class="status-option" data-status="progress">🔄 進行中</div>
+                    <div class="status-option" data-status="waiting">⏳ 待機中</div>
+                    <div class="status-option" data-status="completed">✅ 完了</div>
+                </div>
+            </div>
+            
+            <div class="modal-section">
+                <div class="section-header">👥 連絡先・宛先情報</div>
+                <div class="field-row">
+                    <div class="form-group">
+                        <label class="form-label">宛先・連絡先</label>
+                        <input type="text" id="modal-contact" class="form-input" placeholder="例: A社 田中様 (03-1234-5678)">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">メールアドレス</label>
+                        <input type="email" id="modal-email" class="form-input" placeholder="例: tanaka@a-company.com">
+                    </div>
+                </div>
+            </div>
+            
+            <div class="modal-section">
+                <div class="section-header">📎 関連書類・ファイル</div>
+                <div class="form-group">
+                    <label class="form-label">関連ファイル・書類</label>
+                    <textarea id="modal-documents" class="form-textarea" placeholder="関連する書類やファイルの情報を記載&#10;例: 提案書v2.1.pdf、契約書案.docx、見積書20241201.xlsx"></textarea>
+                </div>
+            </div>
+            
+            <div class="modal-section">
+                <div class="section-header">📝 進捗状況・備考</div>
+                <div class="form-group">
+                    <label class="form-label">進捗メモ・備考</label>
+                    <textarea id="modal-notes" class="form-textarea" placeholder="進捗状況、注意点、次のアクション等を記載&#10;例: 12/1に初回MTG実施。追加要件について12/5に再度確認予定"></textarea>
+                </div>
+            </div>
+            
+            <button class="save-btn" onclick="saveTaskDetails()">💾 変更を保存</button>
+        </div>
+    </div>
+    
     <script>
         // データ管理
         let tasks = JSON.parse(localStorage.getItem('kanbanTasks') || '[]');
         let assignees = JSON.parse(localStorage.getItem('assigneeList') || '["田中部長", "山田課長", "佐藤主任", "鈴木係長"]');
+        let currentEditingTask = null;
         
         // 現在の日時を取得
         function getCurrentDateTime() {
@@ -592,7 +833,11 @@
                 priority: priority,
                 assignee: assignee || '未設定',
                 status: 'new',
-                createdAt: new Date().toISOString()
+                createdAt: new Date().toISOString(),
+                contact: '',
+                email: '',
+                documents: '',
+                notes: ''
             };
             
             tasks.push(newTask);
@@ -653,9 +898,16 @@
                         deadlineIcon = '⏰';
                     }
                     
+                    // 追加情報の表示アイコン
+                    let additionalIcons = '';
+                    if (task.contact) additionalIcons += ' 📞';
+                    if (task.email) additionalIcons += ' 📧';
+                    if (task.documents) additionalIcons += ' 📎';
+                    if (task.notes) additionalIcons += ' 📝';
+                    
                     return `
-                        <div class="${cardClass}" draggable="true" data-task-id="${task.id}">
-                            <div class="task-title">${task.title}</div>
+                        <div class="${cardClass}" draggable="true" data-task-id="${task.id}" onclick="openTaskModal(${task.id})" style="cursor: pointer;">
+                            <div class="task-title">${task.title}${additionalIcons}</div>
                             <div class="task-meta">
                                 <span class="${deadlineClass}">
                                     ${deadlineIcon} ${deadline.toLocaleDateString('ja-JP')} ${deadline.toLocaleTimeString('ja-JP', {hour: '2-digit', minute: '2-digit'})}
@@ -664,7 +916,7 @@
                                     ${task.priority === 'high' ? '🔴' : task.priority === 'medium' ? '🟡' : '🟢'}
                                 </span>
                                 <span class="task-assignee">${task.assignee}</span>
-                                <button onclick="deleteTask(${task.id})" style="background: #e53e3e; color: white; border: none; padding: 0.2rem 0.4rem; border-radius: 6px; font-size: 0.7rem; cursor: pointer; margin-left: auto;">削除</button>
+                                <button onclick="event.stopPropagation(); deleteTask(${task.id})" style="background: #e53e3e; color: white; border: none; padding: 0.2rem 0.4rem; border-radius: 6px; font-size: 0.7rem; cursor: pointer; margin-left: auto;">削除</button>
                             </div>
                         </div>
                     `;
@@ -677,6 +929,96 @@
             // ドラッグイベントを再設定
             setupDragAndDrop();
         }
+        
+        // モーダル関連の関数
+        function openTaskModal(taskId) {
+            const task = tasks.find(t => t.id === taskId);
+            if (!task) return;
+            
+            currentEditingTask = task;
+            
+            // 基本情報を設定
+            document.getElementById('modal-task-title').value = task.title;
+            document.getElementById('modal-task-date').value = new Date(task.deadline).toISOString().split('T')[0];
+            document.getElementById('modal-task-time').value = new Date(task.deadline).toLocaleTimeString('en-GB', {hour: '2-digit', minute: '2-digit'});
+            document.getElementById('modal-task-priority').value = task.priority;
+            
+            // 担当者選択肢を更新
+            const assigneeSelect = document.getElementById('modal-task-assignee');
+            assigneeSelect.innerHTML = '<option value="">選択してください</option>' + 
+                assignees.map(name => `<option value="${name}" ${task.assignee === name ? 'selected' : ''}>${name}</option>`).join('');
+            
+            // ステータス選択を設定
+            document.querySelectorAll('.status-option').forEach(option => {
+                option.classList.remove('selected');
+                if (option.dataset.status === task.status) {
+                    option.classList.add('selected');
+                }
+            });
+            
+            // 追加情報を設定
+            document.getElementById('modal-contact').value = task.contact || '';
+            document.getElementById('modal-email').value = task.email || '';
+            document.getElementById('modal-documents').value = task.documents || '';
+            document.getElementById('modal-notes').value = task.notes || '';
+            
+            // モーダルを表示
+            document.getElementById('task-modal').style.display = 'block';
+        }
+        
+        function closeTaskModal() {
+            document.getElementById('task-modal').style.display = 'none';
+            currentEditingTask = null;
+        }
+        
+        function saveTaskDetails() {
+            if (!currentEditingTask) return;
+            
+            // 基本情報を更新
+            currentEditingTask.title = document.getElementById('modal-task-title').value.trim();
+            const date = document.getElementById('modal-task-date').value;
+            const time = document.getElementById('modal-task-time').value;
+            currentEditingTask.deadline = new Date(`${date}T${time || '23:59'}`).toISOString();
+            currentEditingTask.priority = document.getElementById('modal-task-priority').value;
+            currentEditingTask.assignee = document.getElementById('modal-task-assignee').value || '未設定';
+            
+            // ステータスを更新
+            const selectedStatus = document.querySelector('.status-option.selected');
+            if (selectedStatus) {
+                currentEditingTask.status = selectedStatus.dataset.status;
+            }
+            
+            // 追加情報を更新
+            currentEditingTask.contact = document.getElementById('modal-contact').value.trim();
+            currentEditingTask.email = document.getElementById('modal-email').value.trim();
+            currentEditingTask.documents = document.getElementById('modal-documents').value.trim();
+            currentEditingTask.notes = document.getElementById('modal-notes').value.trim();
+            
+            // 保存と再描画
+            saveTasks();
+            renderTasks();
+            updateStats();
+            closeTaskModal();
+            
+            showMessage(`✅ タスク「${currentEditingTask.title}」を更新しました！`);
+        }
+        
+        // ステータス選択
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('.status-option').forEach(option => {
+                option.addEventListener('click', function() {
+                    document.querySelectorAll('.status-option').forEach(opt => opt.classList.remove('selected'));
+                    this.classList.add('selected');
+                });
+            });
+            
+            // モーダル外クリックで閉じる
+            document.getElementById('task-modal').addEventListener('click', function(e) {
+                if (e.target === this) {
+                    closeTaskModal();
+                }
+            });
+        });
         
         // ドラッグ&ドロップを設定
         function setupDragAndDrop() {
