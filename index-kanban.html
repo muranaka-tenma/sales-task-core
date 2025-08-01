@@ -13,8 +13,8 @@
         
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-            background: #f4f5f7;
-            color: #172b4d;
+            background: var(--body-bg, #f4f5f7);
+            color: var(--text-color, #172b4d);
             overflow-x: auto;
         }
         
@@ -35,9 +35,9 @@
         
         /* 統計表示 */
         .stats-bar {
-            background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+            background: var(--stats-bg, linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%));
             padding: 0.5rem 1rem;
-            border-bottom: 1px solid #dfe1e6;
+            border-bottom: 1px solid var(--border-color, #dfe1e6);
             display: flex;
             gap: 1.5rem;
             align-items: center;
@@ -123,7 +123,7 @@
         
         /* タスクカード */
         .task-card {
-            background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+            background: var(--card-bg, linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%));
             border-radius: 6px;
             padding: 0.5rem;
             margin-bottom: 0.375rem;
@@ -131,7 +131,14 @@
             box-shadow: 0 1px 3px rgba(9,30,66,.15);
             transition: all 0.2s ease;
             border-left: 3px solid transparent;
-            border: 1px solid rgba(0,0,0,0.05);
+            border: 1px solid var(--card-border, rgba(0,0,0,0.05));
+            color: var(--card-text, inherit);
+        }
+        
+        .dark-theme .task-card {
+            --card-bg: linear-gradient(135deg, #161b22 0%, #0d1117 100%);
+            --card-border: #30363d;
+            --card-text: #c9d1d9;
         }
         
         .task-card:hover {
@@ -179,9 +186,13 @@
         .task-title {
             font-weight: 600;
             margin-bottom: 0.375rem;
-            color: #172b4d;
+            color: var(--title-color, #172b4d);
             font-size: 0.8rem;
             line-height: 1.25;
+        }
+        
+        .dark-theme .task-title {
+            --title-color: #c9d1d9;
         }
         
         .task-meta {
@@ -617,10 +628,20 @@
         .form-input, .form-select, .form-textarea {
             width: 100%;
             padding: 0.75rem;
-            border: 2px solid #dfe1e6;
+            border: 2px solid var(--input-border, #dfe1e6);
             border-radius: 3px;
             font-size: 1rem;
             transition: border-color 0.2s ease;
+            background: var(--input-bg, white);
+            color: var(--input-text, inherit);
+        }
+        
+        .dark-theme .form-input,
+        .dark-theme .form-select,
+        .dark-theme .form-textarea {
+            --input-border: #30363d;
+            --input-bg: #0d1117;
+            --input-text: #c9d1d9;
         }
         
         .form-input:focus, .form-select:focus, .form-textarea:focus {
@@ -773,9 +794,20 @@
         </div>
         <div style="margin-left: auto; display: flex; gap: 0.5rem; align-items: center;">
             <span style="font-size: 0.75rem; color: #5e6c84;">👥 担当者:</span>
-            <select id="assignee-filter" style="font-size: 0.75rem; padding: 0.25rem 0.5rem; border: 1px solid #dfe1e6; border-radius: 3px; background: white;">
-                <option value="">全員</option>
-            </select>
+            <div id="assignee-filter-container" style="position: relative;">
+                <button id="assignee-filter-btn" onclick="toggleAssigneeFilter()" style="font-size: 0.75rem; padding: 0.25rem 0.5rem; border: 1px solid #dfe1e6; border-radius: 3px; background: white; cursor: pointer; min-width: 120px; text-align: left; display: flex; justify-content: space-between; align-items: center;">
+                    <span id="assignee-filter-text">全員</span>
+                    <span>▼</span>
+                </button>
+                <div id="assignee-filter-dropdown" style="position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #dfe1e6; border-radius: 3px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); display: none; z-index: 1000; max-height: 200px; overflow-y: auto;">
+                    <div style="padding: 0.5rem;">
+                        <label style="display: flex; align-items: center; padding: 0.25rem; cursor: pointer; hover: background: #f5f5f5;">
+                            <input type="checkbox" value="" onchange="updateAssigneeFilterSelection()" style="margin-right: 0.5rem;">
+                            <span>全員</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
     
@@ -908,6 +940,9 @@
                 </div>
                 <div class="theme-option" style="background: linear-gradient(135deg, #805ad5, #6b46c1)" onclick="setTheme('violet', '#805ad5', '#6b46c1', '#553c9a', '#faf5ff')" data-theme="violet">
                     <div class="theme-name">バイオレット</div>
+                </div>
+                <div class="theme-option" style="background: linear-gradient(135deg, #1a202c, #2d3748)" onclick="setTheme('black', '#1a202c', '#2d3748', '#171923', '#e2e8f0')" data-theme="black">
+                    <div class="theme-name">ブラック</div>
                 </div>
             </div>
         </div>
@@ -1682,21 +1717,18 @@
             const board = document.getElementById('kanban-board');
             board.innerHTML = '';
             
-            // 担当者フィルタを取得
-            const assigneeFilter = document.getElementById('assignee-filter')?.value || '';
-            
             columns.forEach(column => {
                 let columnTasks = tasks.filter(t => t.columnId === column.id);
                 
-                // 担当者フィルタを適用
-                if (assigneeFilter) {
+                // 担当者フィルタを適用（複数選択対応）
+                if (selectedAssigneeFilters.length > 0) {
                     columnTasks = columnTasks.filter(t => {
                         // 新しいassigneesフィールドをチェック
                         if (t.assignees && Array.isArray(t.assignees)) {
-                            return t.assignees.includes(assigneeFilter);
+                            return t.assignees.some(a => selectedAssigneeFilters.includes(a));
                         }
                         // 旧いassigneeフィールドもチェック（後方互換性）
-                        return t.assignee === assigneeFilter;
+                        return selectedAssigneeFilters.includes(t.assignee);
                     });
                 }
                 
@@ -1819,11 +1851,8 @@
         }
         
         function updateAssigneeFilter() {
-            const assigneeFilter = document.getElementById('assignee-filter');
-            if (!assigneeFilter) return;
-            
-            // 現在の選択を保存
-            const currentValue = assigneeFilter.value;
+            const dropdownContainer = document.getElementById('assignee-filter-dropdown');
+            if (!dropdownContainer) return;
             
             // すべての担当者を取得（新旧フィールド両方から）
             const allAssignees = [...new Set(
@@ -1841,18 +1870,60 @@
                 }).filter(a => a && a !== '未設定')
             )];
             
-            // オプションを更新
-            assigneeFilter.innerHTML = '<option value="">全員</option>';
-            allAssignees.forEach(assignee => {
-                const option = document.createElement('option');
-                option.value = assignee;
-                option.textContent = assignee;
-                assigneeFilter.appendChild(option);
+            // ドロップダウンのHTMLを再構築
+            dropdownContainer.innerHTML = `
+                <div style="padding: 0.5rem;">
+                    <label style="display: flex; align-items: center; padding: 0.25rem; cursor: pointer; border-radius: 3px;" onmouseover="this.style.backgroundColor='#f5f5f5'" onmouseout="this.style.backgroundColor=''">
+                        <input type="checkbox" value="" onchange="updateAssigneeFilterSelection()" style="margin-right: 0.5rem;" ${selectedAssigneeFilters.length === 0 ? 'checked' : ''}>
+                        <span>全員</span>
+                    </label>
+                    ${allAssignees.map(assignee => `
+                        <label style="display: flex; align-items: center; padding: 0.25rem; cursor: pointer; border-radius: 3px;" onmouseover="this.style.backgroundColor='#f5f5f5'" onmouseout="this.style.backgroundColor=''">
+                            <input type="checkbox" value="${assignee}" onchange="updateAssigneeFilterSelection()" style="margin-right: 0.5rem;" ${selectedAssigneeFilters.includes(assignee) ? 'checked' : ''}>
+                            <span>${assignee}</span>
+                        </label>
+                    `).join('')}
+                </div>
+            `;
+            
+            updateAssigneeFilterText();
+        }
+        
+        function toggleAssigneeFilter() {
+            const dropdown = document.getElementById('assignee-filter-dropdown');
+            dropdown.style.display = dropdown.style.display === 'none' ? 'block' : 'none';
+        }
+        
+        function updateAssigneeFilterSelection() {
+            const checkboxes = document.querySelectorAll('#assignee-filter-dropdown input[type="checkbox"]');
+            selectedAssigneeFilters = [];
+            
+            checkboxes.forEach(checkbox => {
+                if (checkbox.checked && checkbox.value) {
+                    selectedAssigneeFilters.push(checkbox.value);
+                }
             });
             
-            // 選択を復元
-            if (allAssignees.includes(currentValue)) {
-                assigneeFilter.value = currentValue;
+            // 全員チェックボックスの制御
+            const allCheckbox = document.querySelector('#assignee-filter-dropdown input[value=""]');
+            if (selectedAssigneeFilters.length === 0) {
+                allCheckbox.checked = true;
+            } else {
+                allCheckbox.checked = false;
+            }
+            
+            updateAssigneeFilterText();
+            render();
+        }
+        
+        function updateAssigneeFilterText() {
+            const textElement = document.getElementById('assignee-filter-text');
+            if (selectedAssigneeFilters.length === 0) {
+                textElement.textContent = '全員';
+            } else if (selectedAssigneeFilters.length === 1) {
+                textElement.textContent = selectedAssigneeFilters[0];
+            } else {
+                textElement.textContent = `${selectedAssigneeFilters.length}名選択中`;
             }
         }
         
@@ -1967,12 +2038,28 @@
             document.documentElement.style.setProperty('--theme-color-dark', darkColor);
             document.documentElement.style.setProperty('--theme-color-light', lightColor);
             
+            // ブラックテーマの場合、追加のスタイル変更
+            if (themeName === 'black') {
+                document.documentElement.style.setProperty('--body-bg', '#0d1117');
+                document.documentElement.style.setProperty('--text-color', '#c9d1d9');
+                document.documentElement.style.setProperty('--stats-bg', 'linear-gradient(135deg, #161b22 0%, #0d1117 100%)');
+                document.documentElement.style.setProperty('--border-color', '#30363d');
+                document.body.classList.add('dark-theme');
+            } else {
+                document.documentElement.style.setProperty('--body-bg', '#f4f5f7');
+                document.documentElement.style.setProperty('--text-color', '#172b4d');
+                document.documentElement.style.setProperty('--stats-bg', 'linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)');
+                document.documentElement.style.setProperty('--border-color', '#dfe1e6');
+                document.body.classList.remove('dark-theme');
+            }
+            
             localStorage.setItem('selectedTheme', themeName);
             localStorage.setItem('themeColors', JSON.stringify({
                 primary: color,
                 secondary: secondaryColor,
                 dark: darkColor,
-                light: lightColor
+                light: lightColor,
+                themeName: themeName
             }));
             
             closeThemeModal();
@@ -1996,6 +2083,15 @@
                 document.documentElement.style.setProperty('--theme-color-secondary', colors.secondary);
                 document.documentElement.style.setProperty('--theme-color-dark', colors.dark);
                 document.documentElement.style.setProperty('--theme-color-light', colors.light);
+                
+                // ブラックテーマの場合、追加のスタイルを適用
+                if (colors.themeName === 'black' || savedTheme === 'black') {
+                    document.documentElement.style.setProperty('--body-bg', '#0d1117');
+                    document.documentElement.style.setProperty('--text-color', '#c9d1d9');
+                    document.documentElement.style.setProperty('--stats-bg', 'linear-gradient(135deg, #161b22 0%, #0d1117 100%)');
+                    document.documentElement.style.setProperty('--border-color', '#30363d');
+                    document.body.classList.add('dark-theme');
+                }
             }
         }
         
@@ -2127,6 +2223,16 @@
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
                 closeModal();
+            }
+        });
+        
+        // クリックでドロップダウンを閉じる
+        document.addEventListener('click', (e) => {
+            const filterContainer = document.getElementById('assignee-filter-container');
+            const dropdown = document.getElementById('assignee-filter-dropdown');
+            
+            if (filterContainer && !filterContainer.contains(e.target)) {
+                dropdown.style.display = 'none';
             }
         });
         
