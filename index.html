@@ -115,23 +115,23 @@
         <div class="countdown" id="countdown">3秒後に自動で新バージョンに移動...</div>
         
         <div style="margin: 2rem 0;">
-            <a href="./task-manager-v6.html" class="btn" id="v6-btn">
-                🎯 V6トレロ風（シンプル・実用的）
+            <a href="./task-core.html" class="btn" id="main-btn">
+                🎯 タスク管理ツール（メイン）
+            </a>
+            <br>
+            <a href="./task-manager-v6.html" class="btn btn-secondary">
+                📋 V6トレロ風
             </a>
             <br>
             <a href="./task-manager-v3.html" class="btn btn-secondary">
                 🚀 V3シンプル版
             </a>
-            <br>
-            <a href="./index-backup-20250801-162226.html" class="btn btn-secondary">
-                📋 旧版（バックアップ）
-            </a>
         </div>
         
         <div style="background: #e6fffa; padding: 1rem; border-radius: 8px; margin-top: 2rem; border-left: 4px solid #38b2ac;">
             <p style="font-size: 0.9rem; color: #234e52; margin: 0;">
-                <strong>🎯 ついに実現！</strong><br>
-                「タスクの異動先は、連絡待ちとか承認待ちとか...フェーズは自由設定出来て、位置とかフロー自体も直感的に設定出来る」システムが完成しました！
+                <strong>🎯 シンプル・実用的</strong><br>
+                期限管理と優先度管理に特化したタスク管理ツール
             </p>
         </div>
     </div>
@@ -152,7 +152,7 @@
                 v2Btn.style.background = 'linear-gradient(135deg, #48bb78, #38a169)';
                 clearInterval(timer);
                 setTimeout(() => {
-                    window.location.href = './task-manager-v6.html';
+                    window.location.href = './task-core.html';
                 }, 500);
             }
         }, 1000);
