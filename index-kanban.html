@@ -434,13 +434,21 @@
                     </div>
                     <div class="form-group">
                         <label class="form-label">担当者</label>
-                        <input type="text" class="form-input" id="task-assignee-input" placeholder="例: 田中部長">
+                        <select class="form-select" id="task-assignee-input">
+                            <option value="">選択してください</option>
+                        </select>
                     </div>
                 </div>
                 
                 <div class="form-group">
                     <label class="form-label">メモ・備考</label>
                     <textarea class="form-textarea" id="task-memo-input" rows="3" placeholder="詳細な進捗状況や備考を記録"></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">添付ファイル</label>
+                    <input type="file" class="form-input" id="task-files-input" multiple accept="*/*">
+                    <div id="attached-files-list" style="margin-top: 0.5rem;"></div>
                 </div>
                 
                 <div class="modal-actions">
@@ -457,6 +465,9 @@
         let draggedTask = null;
         let editingTask = null;
         let taskCounter = tasks.length || 0;
+        
+        // 担当者リスト
+        let assignees = JSON.parse(localStorage.getItem('taskAssignees') || '["田中部長", "佐藤課長", "鈴木主任", "山田さん"]');
         
         // カラム定義
         const columns = [
@@ -497,10 +508,33 @@
             document.getElementById('task-priority-input').value = 'medium';
             document.getElementById('task-assignee-input').value = '';
             document.getElementById('task-memo-input').value = '';
+            document.getElementById('task-files-input').value = '';
+            document.getElementById('attached-files-list').innerHTML = '';
+            
+            // 担当者選択肢を更新
+            updateAssigneeOptions();
             
             // カラム情報を保存
             document.getElementById('task-modal').dataset.targetColumn = columnId;
             document.getElementById('task-modal').classList.add('show');
+        }
+        
+        function updateAssigneeOptions() {
+            const select = document.getElementById('task-assignee-input');
+            select.innerHTML = '<option value="">選択してください</option>';
+            
+            assignees.forEach(assignee => {
+                const option = document.createElement('option');
+                option.value = assignee;
+                option.textContent = assignee;
+                select.appendChild(option);
+            });
+            
+            // 新規追加オプション
+            const addOption = document.createElement('option');
+            addOption.value = '__ADD_NEW__';
+            addOption.textContent = '+ 新しい担当者を追加';
+            select.appendChild(addOption);
         }
         
         function editTask(taskId) {
@@ -512,10 +546,38 @@
             document.getElementById('task-date-input').value = editingTask.deadline.split('T')[0];
             document.getElementById('task-time-input').value = editingTask.deadline.split('T')[1].substring(0, 5);
             document.getElementById('task-priority-input').value = editingTask.priority;
-            document.getElementById('task-assignee-input').value = editingTask.assignee || '';
             document.getElementById('task-memo-input').value = editingTask.memo || '';
             
+            // 担当者選択肢を更新してから値を設定
+            updateAssigneeOptions();
+            document.getElementById('task-assignee-input').value = editingTask.assignee || '';
+            
+            // 添付ファイル表示
+            displayAttachedFiles(editingTask.attachments || []);
+            
             document.getElementById('task-modal').classList.add('show');
+        }
+        
+        function displayAttachedFiles(attachments) {
+            const container = document.getElementById('attached-files-list');
+            container.innerHTML = '';
+            
+            attachments.forEach((file, index) => {
+                const fileDiv = document.createElement('div');
+                fileDiv.style.cssText = 'display: flex; align-items: center; gap: 0.5rem; padding: 0.3rem; background: #f4f5f7; border-radius: 3px; margin-bottom: 0.3rem;';
+                fileDiv.innerHTML = `
+                    <span style="font-size: 0.8rem;">📎 ${file.name}</span>
+                    <button type="button" onclick="removeAttachment(${index})" style="background: #e53e3e; color: white; border: none; padding: 0.2rem 0.4rem; border-radius: 3px; font-size: 0.7rem; cursor: pointer;">削除</button>
+                `;
+                container.appendChild(fileDiv);
+            });
+        }
+        
+        function removeAttachment(index) {
+            if (editingTask && editingTask.attachments) {
+                editingTask.attachments.splice(index, 1);
+                displayAttachedFiles(editingTask.attachments);
+            }
         }
         
         function saveTask(event) {
@@ -525,15 +587,51 @@
             const date = document.getElementById('task-date-input').value;
             const time = document.getElementById('task-time-input').value;
             const priority = document.getElementById('task-priority-input').value;
-            const assignee = document.getElementById('task-assignee-input').value.trim();
+            let assignee = document.getElementById('task-assignee-input').value;
             const memo = document.getElementById('task-memo-input').value.trim();
+            const fileInput = document.getElementById('task-files-input');
             
             if (!title || !date) {
                 alert('タスク名と期限日は必須です');
                 return;
             }
             
+            // 新しい担当者の追加処理
+            if (assignee === '__ADD_NEW__') {
+                const newAssignee = prompt('新しい担当者名を入力してください:');
+                if (newAssignee && newAssignee.trim()) {
+                    assignee = newAssignee.trim();
+                    if (!assignees.includes(assignee)) {
+                        assignees.push(assignee);
+                        localStorage.setItem('taskAssignees', JSON.stringify(assignees));
+                    }
+                } else {
+                    assignee = '';
+                }
+            }
+            
             const deadline = new Date(`${date}T${time || '23:59'}`);
+            
+            // 添付ファイル処理
+            const attachments = [];
+            if (fileInput.files.length > 0) {
+                for (let i = 0; i < fileInput.files.length; i++) {
+                    const file = fileInput.files[i];
+                    // ファイルサイズ制限 (5MB)
+                    if (file.size > 5 * 1024 * 1024) {
+                        alert(`ファイル "${file.name}" が大きすぎます（5MB以下にしてください）`);
+                        return;
+                    }
+                    
+                    // ファイル情報を保存（実際のファイルデータは保存しない）
+                    attachments.push({
+                        name: file.name,
+                        size: file.size,
+                        type: file.type,
+                        lastModified: file.lastModified
+                    });
+                }
+            }
             
             if (editingTask) {
                 // 編集
@@ -542,6 +640,10 @@
                 editingTask.priority = priority;
                 editingTask.assignee = assignee || '未設定';
                 editingTask.memo = memo;
+                
+                // 新しい添付ファイルを既存のものに追加
+                if (!editingTask.attachments) editingTask.attachments = [];
+                editingTask.attachments.push(...attachments);
             } else {
                 // 新規作成
                 const targetColumn = document.getElementById('task-modal').dataset.targetColumn;
@@ -552,6 +654,7 @@
                     priority: priority,
                     assignee: assignee || '未設定',
                     memo: memo,
+                    attachments: attachments,
                     columnId: targetColumn,
                     completed: targetColumn === 'done',
                     createdAt: new Date().toISOString()
@@ -563,7 +666,7 @@
             render();
             closeModal();
             
-            // 効果音（簡易版）
+            // 効果音
             playSuccessSound();
         }
         
@@ -577,7 +680,7 @@
                 tasks = tasks.filter(t => t.id !== taskId);
                 saveTasks();
                 render();
-                playSuccessSound();
+                playMoveSound();
             }
         }
         
@@ -608,7 +711,7 @@
                 draggedTask.completed = (columnId === 'done');
                 saveTasks();
                 render();
-                playSuccessSound();
+                playMoveSound(); // シュパッ音に変更
             }
         }
         
@@ -622,7 +725,8 @@
         }
         
         // 効果音
-        function playSuccessSound() {
+        function playMoveSound() {
+            // シュパッと軽快な移動音
             try {
                 const audioContext = new (window.AudioContext || window.webkitAudioContext)();
                 const oscillator = audioContext.createOscillator();
@@ -631,13 +735,37 @@
                 oscillator.connect(gainNode);
                 gainNode.connect(audioContext.destination);
                 
-                oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
-                oscillator.frequency.setValueAtTime(1000, audioContext.currentTime + 0.1);
-                gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
-                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
+                oscillator.frequency.setValueAtTime(1200, audioContext.currentTime);
+                oscillator.frequency.setValueAtTime(1800, audioContext.currentTime + 0.05);
+                oscillator.frequency.setValueAtTime(1400, audioContext.currentTime + 0.1);
+                gainNode.gain.setValueAtTime(0.2, audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.15);
                 
                 oscillator.start(audioContext.currentTime);
-                oscillator.stop(audioContext.currentTime + 0.2);
+                oscillator.stop(audioContext.currentTime + 0.15);
+            } catch (e) {
+                // 効果音が再生できない場合は無視
+            }
+        }
+        
+        function playSuccessSound() {
+            // 作成・保存時の成功音
+            try {
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                
+                oscillator.frequency.setValueAtTime(600, audioContext.currentTime);
+                oscillator.frequency.setValueAtTime(800, audioContext.currentTime + 0.1);
+                oscillator.frequency.setValueAtTime(1000, audioContext.currentTime + 0.2);
+                gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+                
+                oscillator.start(audioContext.currentTime);
+                oscillator.stop(audioContext.currentTime + 0.3);
             } catch (e) {
                 // 効果音が再生できない場合は無視
             }
@@ -722,6 +850,7 @@
                     ${task.memo ? `<div class="task-memo">${task.memo}</div>` : ''}
                     <div class="task-badges">
                         ${task.memo ? '<span class="attachment-icon">📝</span>' : ''}
+                        ${task.attachments && task.attachments.length > 0 ? `<span class="attachment-icon">📎 ${task.attachments.length}</span>` : ''}
                         <span style="font-size: 0.7rem; color: #5e6c84;">👤 ${task.assignee}</span>
                     </div>
                 </div>
@@ -742,8 +871,77 @@
             localStorage.setItem('salesTasksKanban', JSON.stringify(tasks));
         }
         
+        // 通知機能
+        let notificationPermission = false;
+        
+        function requestNotificationPermission() {
+            if ('Notification' in window) {
+                Notification.requestPermission().then(permission => {
+                    notificationPermission = (permission === 'granted');
+                    console.log('通知許可:', notificationPermission);
+                });
+            }
+        }
+        
+        function showNotification(title, body, options = {}) {
+            if (notificationPermission && 'Notification' in window) {
+                new Notification(title, {
+                    body: body,
+                    icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y="50" font-size="50">🎯</text></svg>',
+                    ...options
+                });
+            }
+        }
+        
+        function checkDeadlines() {
+            const now = new Date();
+            const threeDaysFromNow = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
+            const oneDayFromNow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+            const threeHoursFromNow = new Date(now.getTime() + 3 * 60 * 60 * 1000);
+            
+            tasks.forEach(task => {
+                if (task.columnId === 'done') return; // 完了済みは除外
+                
+                const deadline = new Date(task.deadline);
+                const timeUntilDeadline = deadline.getTime() - now.getTime();
+                
+                // 期限切れ通知
+                if (deadline < now && !task.overdueNotified) {
+                    showNotification(
+                        '🚨 期限切れタスク',
+                        `「${task.title}」の期限が過ぎています！`,
+                        { tag: `overdue-${task.id}` }
+                    );
+                    task.overduteNotified = true;
+                }
+                // 3時間前通知
+                else if (timeUntilDeadline > 0 && timeUntilDeadline <= 3 * 60 * 60 * 1000 && !task.threeHourNotified) {
+                    showNotification(
+                        '⚠️ 期限間近',
+                        `「${task.title}」の期限まで3時間です`,
+                        { tag: `threehour-${task.id}` }
+                    );
+                    task.threeHourNotified = true;
+                }
+                // 1日前通知
+                else if (timeUntilDeadline > 0 && timeUntilDeadline <= 24 * 60 * 60 * 1000 && !task.oneDayNotified) {
+                    showNotification(
+                        '📅 期限予告',
+                        `「${task.title}」の期限まで1日です`,
+                        { tag: `oneday-${task.id}` }
+                    );
+                    task.oneDayNotified = true;
+                }
+            });
+            
+            saveTasks(); // 通知フラグを保存
+        }
+        
         // 初期化
         function init() {
+            // 通知許可を要求
+            requestNotificationPermission();
+            
             // 既存データがない場合はサンプルデータを作成
             if (tasks.length === 0) {
                 tasks = [
@@ -774,12 +972,40 @@
             }
             
             render();
+            
+            // 定期的に期限チェック（5分間隔）
+            checkDeadlines();
+            setInterval(checkDeadlines, 5 * 60 * 1000);
         }
         
         // イベントリスナー
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
                 closeModal();
+            }
+        });
+        
+        // 担当者選択の変更イベント
+        document.addEventListener('DOMContentLoaded', () => {
+            const assigneeSelect = document.getElementById('task-assignee-input');
+            if (assigneeSelect) {
+                assigneeSelect.addEventListener('change', function() {
+                    if (this.value === '__ADD_NEW__') {
+                        const newAssignee = prompt('新しい担当者名を入力してください:');
+                        if (newAssignee && newAssignee.trim()) {
+                            const trimmedName = newAssignee.trim();
+                            if (!assignees.includes(trimmedName)) {
+                                assignees.push(trimmedName);
+                                localStorage.setItem('taskAssignees', JSON.stringify(assignees));
+                            }
+                            // 選択肢を更新して新しい担当者を選択
+                            updateAssigneeOptions();
+                            this.value = trimmedName;
+                        } else {
+                            this.value = '';
+                        }
+                    }
+                });
             }
         });
         
