@@ -137,6 +137,10 @@
             cursor: move;
             user-select: none;
             transition: all 0.15s ease;
+            z-index: 10;
+            /* デバッグ用：明確に見えるように */
+            border: 2px solid #667eea !important;
+            background: white !important;
         }
         
         .phase-window:hover {
@@ -781,9 +785,14 @@
         function createPhaseElement(phase) {
             const div = document.createElement('div');
             div.className = 'phase-window';
-            div.style.left = `${phase.x}px`;
-            div.style.top = `${phase.y}px`;
+            div.style.left = `${Math.max(10, phase.x)}px`;
+            div.style.top = `${Math.max(10, phase.y)}px`;
+            div.style.position = 'absolute';
+            div.style.zIndex = '10';
             div.draggable = true;
+            
+            // デバッグ用ログ
+            console.log(`Creating phase: ${phase.name} at (${phase.x}, ${phase.y})`);
             
             const phaseTasks = tasks.filter(task => task.phaseId === phase.id);
             const taskCount = phaseTasks.length;
@@ -1123,10 +1132,10 @@
             taskCounter = 0;
             
             currentFlow.phases = [
-                { id: 'phase-1', name: '見積作成', x: 100, y: 100, color: colors[0], description: '顧客要件に基づく見積もり' },
-                { id: 'phase-2', name: '相手確認', x: 350, y: 100, color: colors[1], description: '顧客による内容確認' },
-                { id: 'phase-3', name: '承認待ち', x: 600, y: 100, color: colors[2], description: '社内承認プロセス' },
-                { id: 'phase-4', name: '完了', x: 850, y: 100, color: colors[3], description: '案件完了' }
+                { id: 'phase-1', name: '見積作成', x: 50, y: 50, color: colors[0], description: '顧客要件に基づく見積もり' },
+                { id: 'phase-2', name: '相手確認', x: 300, y: 50, color: colors[1], description: '顧客による内容確認' },
+                { id: 'phase-3', name: '承認待ち', x: 550, y: 50, color: colors[2], description: '社内承認プロセス' },
+                { id: 'phase-4', name: '完了', x: 800, y: 50, color: colors[3], description: '案件完了' }
             ];
             phaseCounter = 4;
             
