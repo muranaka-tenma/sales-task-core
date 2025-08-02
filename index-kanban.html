@@ -1029,6 +1029,18 @@
                     <div style="display: flex; flex-direction: column; gap: 1rem;">
                         <textarea id="import-text" placeholder="シンプル形式でタスクを入力してください&#10;例:&#10;A社への提案書作成 @田中部長 2024-08-05&#10;  詳細確認事項（半角スペース2個）&#10;  見積もり調整&#10;B社打ち合わせ!!! @佐藤課長&#10;　資料準備済み（全角スペース）&#10;		会議室予約（タブ）&#10;C社フォローアップ" style="width: 100%; height: 120px; padding: 0.75rem; border: 1px solid #ddd; border-radius: 4px; font-family: monospace; font-size: 0.9rem; resize: vertical;"></textarea>
                         
+                        <!-- インポートオプション -->
+                        <div style="margin-bottom: 0.5rem; padding: 0.5rem; background: #f8f9fa; border-radius: 4px; border: 1px solid #e9ecef;">
+                            <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.9rem; color: #495057;">
+                                <input type="checkbox" id="google-todo-mode" style="margin: 0;">
+                                <span>📅 GoogleTODO解析モード</span>
+                                <span style="font-size: 0.8rem; color: #6c757d;">(期限情報を自動で分離)</span>
+                            </label>
+                            <div style="font-size: 0.8rem; color: #6c757d; margin-top: 0.3rem; margin-left: 1.5rem;">
+                                例: "会議の準備 12月15日(月), 14:30" → タスク「会議の準備」+ 期限「2024-12-15 14:30」
+                            </div>
+                        </div>
+                        
                         <div style="display: flex; gap: 0.5rem;">
                             <button onclick="previewImport()" style="flex: 1; padding: 0.75rem; background: #0079bf; color: white; border: none; border-radius: 4px; cursor: pointer;">👁️ プレビュー</button>
                             <button onclick="clearImportText()" style="padding: 0.75rem; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer;">🗑️ クリア</button>
@@ -2651,6 +2663,9 @@
                 return;
             }
             
+            // GoogleTODO解析モードかチェック
+            const isGoogleTodoMode = document.getElementById('google-todo-mode').checked;
+            
             // デフォルト設定（ユーザー統一）
             const currentUser = localStorage.getItem('currentUser') || 'ユーザー';
             const defaultAssignee = currentUser;
@@ -2658,12 +2673,59 @@
             const defaultPriority = 'medium';
             const defaultColumn = 'todo';
             
-            // テキストを行に分割
-            const lines = importText.split('\n');
             previewTasks = [];
             
-            // 各行を個別のアイテムとして処理
-            let lastMainTaskIndex = -1;
+            if (isGoogleTodoMode) {
+                // GoogleTODO解析モード
+                const parsedTodos = parseGoogleTodoText(importText);
+                
+                parsedTodos.forEach((todoItem, index) => {
+                    let taskTitle = todoItem.title;
+                    let deadline = todoItem.deadline || defaultDeadline;
+                    
+                    // 追加で担当者を抽出（@記法がある場合）
+                    const assigneeMatch = taskTitle.match(/@([^\s@]+)/g);
+                    let assignee = defaultAssignee;
+                    if (assigneeMatch && assigneeMatch.length > 0) {
+                        assignee = assigneeMatch[0].replace('@', '');
+                        taskTitle = taskTitle.replace(/@[^\s@]+/g, '').trim();
+                    }
+                    
+                    // 優先度を抽出
+                    let priority = defaultPriority;
+                    if (taskTitle.match(/[!！]{2,}|高|緊急|urgent|URGENT|急/)) {
+                        priority = 'high';
+                        taskTitle = taskTitle.replace(/[!！]+|高|緊急|urgent|URGENT|急/g, '').trim();
+                    } else if (taskTitle.match(/低|later|LATER|後で/)) {
+                        priority = 'low';
+                        taskTitle = taskTitle.replace(/低|later|LATER|後で/g, '').trim();
+                    }
+                    
+                    if (taskTitle && taskTitle.length > 1) {
+                        const task = {
+                            id: `preview_${index}`,
+                            title: taskTitle,
+                            assignee: assignee,
+                            deadline: deadline,
+                            priority: priority,
+                            columnId: defaultColumn,
+                            originalLine: todoItem.originalLine,
+                            lineIndex: index,
+                            isMainTask: true,
+                            parentIndex: null,
+                            isSkip: false,
+                            hasAutoDeadline: todoItem.hasDeadline // GoogleTODOから期限を自動抽出した場合
+                        };
+                        previewTasks.push(task);
+                    }
+                });
+            } else {
+                // 通常モード（既存の処理）
+                // テキストを行に分割
+                const lines = importText.split('\n');
+                
+                // 各行を個別のアイテムとして処理
+                let lastMainTaskIndex = -1;
             
             lines.forEach((line, index) => {
                 if (!line.trim()) return; // 空行はスキップ
@@ -2742,6 +2804,7 @@
                     previewTasks.push(task);
                 }
             });
+            }
             
             // 新しいプレビュー表示
             displayLineByLinePreview();
@@ -2759,11 +2822,19 @@
             const activeTaskCount = previewTasks.filter(t => !t.isSkip).length;
             const mainTaskCount = previewTasks.filter(t => !t.isSkip && t.isMainTask).length;
             const commentCount = previewTasks.filter(t => !t.isSkip && !t.isMainTask).length;
+            const autoDeadlineCount = previewTasks.filter(t => !t.isSkip && t.hasAutoDeadline).length;
+            
+            let modeInfo = '';
+            if (document.getElementById('google-todo-mode').checked) {
+                modeInfo = `<div style="font-size: 0.9rem; margin-top: 0.5rem;">📅 GoogleTODO解析モード: ${autoDeadlineCount}個のタスクで期限を自動抽出</div>`;
+            } else {
+                modeInfo = `<div style="font-size: 0.9rem; margin-top: 0.5rem;">✨ インデント行は自動でコメントに設定済み（半角スペース2個以上・全角スペース・タブ）。ドラッグ&ドロップで親子関係を変更可能</div>`;
+            }
             
             let content = `
                 <div style="margin-bottom: 1rem; padding: 0.75rem; background: #e8f5e8; border-radius: 4px; color: #2f7d2f;">
                     <strong>📝 ${activeTaskCount}個のアイテム (📋 メイン: ${mainTaskCount}, 💬 コメント: ${commentCount})</strong>
-                    <div style="font-size: 0.9rem; margin-top: 0.5rem;">✨ インデント行は自動でコメントに設定済み（半角スペース2個以上・全角スペース・タブ）。ドラッグ&ドロップで親子関係を変更可能：</div>
+                    ${modeInfo}
                 </div>
                 
                 <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 1rem; padding: 1rem; background: #f0f2f5; border-radius: 12px;" id="preview-container" class="preview-grid">
@@ -2778,8 +2849,21 @@
                 
                 const isAutoComment = !task.isMainTask && task.parentIndex !== null;
                 const isAutoDetected = task.autoDetected === true; // 自動判定されたコメントかどうか（明示的にtrueの場合のみ）
-                const borderColor = isAutoComment ? '#28a745' : '#ddd';
-                const bgColor = isAutoComment ? '#f8fff9' : 'white';
+                const isGoogleTodo = task.hasAutoDeadline === true; // GoogleTODOで期限が自動抽出されたタスク
+                
+                let borderColor = '#ddd';
+                let bgColor = 'white';
+                let headerText = 'ドラッグ可能';
+                
+                if (isGoogleTodo) {
+                    borderColor = '#007bff';
+                    bgColor = '#f8f9ff';
+                    headerText = '📅 期限自動抽出';
+                } else if (isAutoComment) {
+                    borderColor = '#28a745';
+                    bgColor = '#f8fff9';
+                    headerText = isAutoDetected ? '✨ 自動コメント' : 'ドラッグ可能';
+                }
                 
                 content += `
                     <div style="border: 2px solid ${borderColor}; border-radius: 8px; background: ${bgColor}; transition: all 0.2s; cursor: move; overflow: hidden; box-shadow: 0 2px 6px rgba(0,0,0,0.1); height: fit-content;" 
@@ -2794,7 +2878,7 @@
                         
                         <!-- ドラッグハンドル -->
                         <div style="background: ${borderColor}; padding: 0.4rem 0.8rem; text-align: center; color: white; font-weight: bold; cursor: grab; user-select: none; font-size: 0.85rem;">
-                            ⋮⋮ ${isAutoDetected ? '✨ 自動コメント' : 'ドラッグ可能'} ⋮⋮
+                            ⋮⋮ ${headerText} ⋮⋮
                         </div>
                         
                         <!-- テキスト表示エリア -->
@@ -3702,6 +3786,101 @@
             return canvas;
         }
         
+        // GoogleTODO形式のタスク解析（期限付きタスクを分離）
+        function parseGoogleTodoText(text) {
+            // GoogleTODOの期限形式パターン: mm月dd日(曜日), hh:mm
+            // 例: "12月15日(月), 14:30" または "12月15日 14:30" など
+            const dateTimePatterns = [
+                // 基本形式: mm月dd日(曜日), hh:mm
+                /(\d{1,2})月(\d{1,2})日\s*\([月火水木金土日]\)\s*,?\s*(\d{1,2}):(\d{2})/g,
+                // 曜日なし: mm月dd日, hh:mm
+                /(\d{1,2})月(\d{1,2})日\s*,?\s*(\d{1,2}):(\d{2})/g,
+                // 時刻なし: mm月dd日(曜日)
+                /(\d{1,2})月(\d{1,2})日\s*\([月火水木金土日]\)/g,
+                // 時刻なし曜日なし: mm月dd日
+                /(\d{1,2})月(\d{1,2})日/g,
+                // 西暦付き: yyyy年mm月dd日
+                /(\d{4})年(\d{1,2})月(\d{1,2})日/g
+            ];
+            
+            const results = [];
+            const lines = text.split('\n');
+            
+            lines.forEach(line => {
+                const trimmedLine = line.trim();
+                if (!trimmedLine) return;
+                
+                let taskTitle = trimmedLine;
+                let deadline = null;
+                let foundDate = false;
+                
+                // 各パターンでマッチを試行
+                for (const pattern of dateTimePatterns) {
+                    const matches = [...trimmedLine.matchAll(pattern)];
+                    if (matches.length > 0) {
+                        const match = matches[0];
+                        foundDate = true;
+                        
+                        // 期限情報を抽出
+                        if (pattern.source.includes('年')) {
+                            // yyyy年mm月dd日形式
+                            const year = match[1];
+                            const month = match[2].padStart(2, '0');
+                            const day = match[3].padStart(2, '0');
+                            deadline = `${year}-${month}-${day}`;
+                        } else if (match[3] && match[4]) {
+                            // 時刻付き
+                            const month = match[1].padStart(2, '0');
+                            const day = match[2].padStart(2, '0');
+                            const hour = match[3].padStart(2, '0');
+                            const minute = match[4].padStart(2, '0');
+                            const currentYear = new Date().getFullYear();
+                            deadline = `${currentYear}-${month}-${day}T${hour}:${minute}`;
+                        } else {
+                            // 日付のみ
+                            const month = match[1].padStart(2, '0');
+                            const day = match[2].padStart(2, '0');
+                            const currentYear = new Date().getFullYear();
+                            deadline = `${currentYear}-${month}-${day}`;
+                        }
+                        
+                        // 期限部分をタスクタイトルから除去
+                        taskTitle = trimmedLine.replace(match[0], '').trim();
+                        
+                        // 前後の不要な記号を除去
+                        taskTitle = taskTitle.replace(/^[^\w\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]+|[^\w\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]+$/g, '');
+                        
+                        break;
+                    }
+                }
+                
+                // 期限が見つからない場合の簡易パターン（数字のみの時刻など）
+                if (!foundDate) {
+                    // 単純な時刻パターン: hh:mm
+                    const timeMatch = taskTitle.match(/(\d{1,2}):(\d{2})/);
+                    if (timeMatch) {
+                        const hour = timeMatch[1].padStart(2, '0');
+                        const minute = timeMatch[2].padStart(2, '0');
+                        const today = new Date();
+                        deadline = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}T${hour}:${minute}`;
+                        taskTitle = taskTitle.replace(timeMatch[0], '').trim();
+                    }
+                }
+                
+                // 空のタスクタイトルを避ける
+                if (taskTitle && taskTitle.length > 1) {
+                    results.push({
+                        title: taskTitle,
+                        deadline: deadline,
+                        hasDeadline: !!deadline,
+                        originalLine: trimmedLine
+                    });
+                }
+            });
+            
+            return results;
+        }
+
         // OCR結果のポストプロセッシング
         function postprocessOCRText(text) {
             let processed = text;
