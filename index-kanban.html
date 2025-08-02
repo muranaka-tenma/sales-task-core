@@ -1029,22 +1029,10 @@
                     <div style="display: flex; flex-direction: column; gap: 1rem;">
                         <textarea id="import-text" placeholder="シンプル形式でタスクを入力してください&#10;例:&#10;A社への提案書作成 @田中部長 2024-08-05&#10;  詳細確認事項（半角スペース2個）&#10;  見積もり調整&#10;B社打ち合わせ!!! @佐藤課長&#10;　資料準備済み（全角スペース）&#10;		会議室予約（タブ）&#10;C社フォローアップ" style="width: 100%; height: 120px; padding: 0.75rem; border: 1px solid #ddd; border-radius: 4px; font-family: monospace; font-size: 0.9rem; resize: vertical;"></textarea>
                         
-                        <!-- インポートオプション -->
-                        <div style="margin-bottom: 0.5rem; padding: 0.5rem; background: #f8f9fa; border-radius: 4px; border: 1px solid #e9ecef;">
-                            <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.9rem; color: #495057;">
-                                <input type="checkbox" id="google-todo-mode" style="margin: 0;">
-                                <span>📅 GoogleTODO解析モード</span>
-                                <span style="font-size: 0.8rem; color: #6c757d;">(期限情報を自動で分離)</span>
-                            </label>
-                            <div style="font-size: 0.8rem; color: #6c757d; margin-top: 0.3rem; margin-left: 1.5rem;">
-                                例: "会議の準備 12月15日(月), 14:30" → タスク「会議の準備」+ 期限「2024-12-15 14:30」
-                            </div>
-                        </div>
-                        
                         <div style="display: flex; gap: 0.5rem;">
                             <button onclick="previewImport()" style="flex: 1; padding: 0.75rem; background: #0079bf; color: white; border: none; border-radius: 4px; cursor: pointer;">👁️ プレビュー</button>
                             <button onclick="clearImportText()" style="padding: 0.75rem; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer;">🗑️ クリア</button>
-                            <label for="ocr-file-input" style="padding: 0.75rem; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; display: inline-block;" title="精度に制約あり。手書きや複雑なレイアウトは非推奨">📸 OCR(β)</label>
+                            <label for="ocr-file-input" style="padding: 0.75rem; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; display: inline-block;" title="GoogleTODOスクリーンショット対応！領域選択でタスク名・期限を自動ペア化">📸 OCR+タグ機能</label>
                             <input type="file" id="ocr-file-input" accept="image/*" style="display: none;" onchange="handleOCRFile(this)">
                         </div>
                         
@@ -2663,9 +2651,6 @@
                 return;
             }
             
-            // GoogleTODO解析モードかチェック
-            const isGoogleTodoMode = document.getElementById('google-todo-mode').checked;
-            
             // デフォルト設定（ユーザー統一）
             const currentUser = localStorage.getItem('currentUser') || 'ユーザー';
             const defaultAssignee = currentUser;
@@ -2673,138 +2658,90 @@
             const defaultPriority = 'medium';
             const defaultColumn = 'todo';
             
+            // テキストを行に分割
+            const lines = importText.split('\n');
             previewTasks = [];
             
-            if (isGoogleTodoMode) {
-                // GoogleTODO解析モード
-                const parsedTodos = parseGoogleTodoText(importText);
-                
-                parsedTodos.forEach((todoItem, index) => {
-                    let taskTitle = todoItem.title;
-                    let deadline = todoItem.deadline || defaultDeadline;
-                    
-                    // 追加で担当者を抽出（@記法がある場合）
-                    const assigneeMatch = taskTitle.match(/@([^\s@]+)/g);
-                    let assignee = defaultAssignee;
-                    if (assigneeMatch && assigneeMatch.length > 0) {
-                        assignee = assigneeMatch[0].replace('@', '');
-                        taskTitle = taskTitle.replace(/@[^\s@]+/g, '').trim();
-                    }
-                    
-                    // 優先度を抽出
-                    let priority = defaultPriority;
-                    if (taskTitle.match(/[!！]{2,}|高|緊急|urgent|URGENT|急/)) {
-                        priority = 'high';
-                        taskTitle = taskTitle.replace(/[!！]+|高|緊急|urgent|URGENT|急/g, '').trim();
-                    } else if (taskTitle.match(/低|later|LATER|後で/)) {
-                        priority = 'low';
-                        taskTitle = taskTitle.replace(/低|later|LATER|後で/g, '').trim();
-                    }
-                    
-                    if (taskTitle && taskTitle.length > 1) {
-                        const task = {
-                            id: `preview_${index}`,
-                            title: taskTitle,
-                            assignee: assignee,
-                            deadline: deadline,
-                            priority: priority,
-                            columnId: defaultColumn,
-                            originalLine: todoItem.originalLine,
-                            lineIndex: index,
-                            isMainTask: true,
-                            parentIndex: null,
-                            isSkip: false,
-                            hasAutoDeadline: todoItem.hasDeadline // GoogleTODOから期限を自動抽出した場合
-                        };
-                        previewTasks.push(task);
-                    }
-                });
-            } else {
-                // 通常モード（既存の処理）
-                // テキストを行に分割
-                const lines = importText.split('\n');
-                
-                // 各行を個別のアイテムとして処理
-                let lastMainTaskIndex = -1;
+            // 各行を個別のアイテムとして処理
+            let lastMainTaskIndex = -1;
             
-            lines.forEach((line, index) => {
-                if (!line.trim()) return; // 空行はスキップ
-                
-                const trimmedLine = line.trim();
-                let taskText = trimmedLine;
-                
-                // スマート判定：インデント（空白）があるかチェック
-                // 半角スペース2つ以上、全角スペース1つ以上、またはタブ文字
-                const hasIndent = line.match(/^(\s{2,}|　+|\t+)/);
-                const isMainTask = !hasIndent;
-                
-                // 担当者を抽出
-                const assigneeMatch = taskText.match(/@([^\s@]+)/g);
-                let assignee = defaultAssignee;
-                if (assigneeMatch && assigneeMatch.length > 0) {
-                    assignee = assigneeMatch[0].replace('@', '');
-                    taskText = taskText.replace(/@[^\s@]+/g, '').trim();
-                }
-                
-                // 日付を抽出
-                const dateMatches = taskText.match(/(\d{4}[-\/]\d{1,2}[-\/]\d{1,2})|(\d{1,2}[-\/]\d{1,2}[-\/]\d{4})|(\d{1,2}月\d{1,2}日)/g);
-                let deadline = defaultDeadline;
-                if (dateMatches && dateMatches.length > 0) {
-                    let dateStr = dateMatches[0];
-                    if (dateStr.includes('月') && dateStr.includes('日')) {
-                        const year = new Date().getFullYear();
-                        const month = dateStr.match(/(\d{1,2})月/)[1].padStart(2, '0');
-                        const day = dateStr.match(/(\d{1,2})日/)[1].padStart(2, '0');
-                        deadline = `${year}-${month}-${day}`;
-                    } else {
-                        const parts = dateStr.split(/[-\/]/);
-                        if (parts[0].length === 4) {
-                            deadline = `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`;
-                        } else {
-                            const year = parts[2].length === 4 ? parts[2] : new Date().getFullYear();
-                            deadline = `${year}-${parts[0].padStart(2, '0')}-${parts[1].padStart(2, '0')}`;
-                        }
-                    }
-                    taskText = taskText.replace(/(\d{4}[-\/]\d{1,2}[-\/]\d{1,2})|(\d{1,2}[-\/]\d{1,2}[-\/]\d{4})|(\d{1,2}月\d{1,2}日)/g, '').trim();
-                }
-                
-                // 優先度を抽出
-                let priority = defaultPriority;
-                if (taskText.match(/[!！]{2,}|高|緊急|urgent|URGENT|急/)) {
-                    priority = 'high';
-                    taskText = taskText.replace(/[!！]+|高|緊急|urgent|URGENT|急/g, '').trim();
-                } else if (taskText.match(/低|later|LATER|後で/)) {
-                    priority = 'low';
-                    taskText = taskText.replace(/低|later|LATER|後で/g, '').trim();
-                }
-                
-                taskText = taskText.replace(/\s+/g, ' ').trim();
-                
-                if (taskText && taskText.length > 1) {
-                    const task = {
-                        id: `preview_${index}`,
-                        title: taskText,
-                        assignee: assignee,
-                        deadline: deadline,
-                        priority: priority,
-                        columnId: defaultColumn,
-                        originalLine: line,
-                        lineIndex: index,
-                        isMainTask: isMainTask, // スマート判定結果
-                        parentIndex: isMainTask ? null : lastMainTaskIndex, // 自動で直前のメインタスクを親に設定
-                        isSkip: false, // スキップするかどうか
-                        autoDetected: !isMainTask && hasIndent // インデントで自動判定されたコメントかどうか
-                    };
-                    
-                    // メインタスクの場合、インデックスを記録
-                    if (isMainTask) {
-                        lastMainTaskIndex = previewTasks.length; // 追加後のインデックス
-                    }
-                    
-                    previewTasks.push(task);
-                }
-            });
+        lines.forEach((line, index) => {
+            if (!line.trim()) return; // 空行はスキップ
+            
+            const trimmedLine = line.trim();
+            let taskText = trimmedLine;
+            
+            // スマート判定：インデント（空白）があるかチェック
+            // 半角スペース2つ以上、全角スペース1つ以上、またはタブ文字
+            const hasIndent = line.match(/^(\s{2,}|　+|\t+)/);
+            const isMainTask = !hasIndent;
+            
+            // 担当者を抽出
+            const assigneeMatch = taskText.match(/@([^\s@]+)/g);
+            let assignee = defaultAssignee;
+            if (assigneeMatch && assigneeMatch.length > 0) {
+                assignee = assigneeMatch[0].replace('@', '');
+                taskText = taskText.replace(/@[^\s@]+/g, '').trim();
             }
+            
+            // 日付を抽出
+            const dateMatches = taskText.match(/(\d{4}[-\/]\d{1,2}[-\/]\d{1,2})|(\d{1,2}[-\/]\d{1,2}[-\/]\d{4})|(\d{1,2}月\d{1,2}日)/g);
+            let deadline = defaultDeadline;
+            if (dateMatches && dateMatches.length > 0) {
+                let dateStr = dateMatches[0];
+                if (dateStr.includes('月') && dateStr.includes('日')) {
+                    const year = new Date().getFullYear();
+                    const month = dateStr.match(/(\d{1,2})月/)[1].padStart(2, '0');
+                    const day = dateStr.match(/(\d{1,2})日/)[1].padStart(2, '0');
+                    deadline = `${year}-${month}-${day}`;
+                } else {
+                    const parts = dateStr.split(/[-\/]/);
+                    if (parts[0].length === 4) {
+                        deadline = `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`;
+                    } else {
+                        const year = parts[2].length === 4 ? parts[2] : new Date().getFullYear();
+                        deadline = `${year}-${parts[0].padStart(2, '0')}-${parts[1].padStart(2, '0')}`;
+                    }
+                }
+                taskText = taskText.replace(/(\d{4}[-\/]\d{1,2}[-\/]\d{1,2})|(\d{1,2}[-\/]\d{1,2}[-\/]\d{4})|(\d{1,2}月\d{1,2}日)/g, '').trim();
+            }
+            
+            // 優先度を抽出
+            let priority = defaultPriority;
+            if (taskText.match(/[!！]{2,}|高|緊急|urgent|URGENT|急/)) {
+                priority = 'high';
+                taskText = taskText.replace(/[!！]+|高|緊急|urgent|URGENT|急/g, '').trim();
+            } else if (taskText.match(/低|later|LATER|後で/)) {
+                priority = 'low';
+                taskText = taskText.replace(/低|later|LATER|後で/g, '').trim();
+            }
+            
+            taskText = taskText.replace(/\s+/g, ' ').trim();
+            
+            if (taskText && taskText.length > 1) {
+                const task = {
+                    id: `preview_${index}`,
+                    title: taskText,
+                    assignee: assignee,
+                    deadline: deadline,
+                    priority: priority,
+                    columnId: defaultColumn,
+                    originalLine: line,
+                    lineIndex: index,
+                    isMainTask: isMainTask, // スマート判定結果
+                    parentIndex: isMainTask ? null : lastMainTaskIndex, // 自動で直前のメインタスクを親に設定
+                    isSkip: false, // スキップするかどうか
+                    autoDetected: !isMainTask && hasIndent // インデントで自動判定されたコメントかどうか
+                };
+                
+                // メインタスクの場合、インデックスを記録
+                if (isMainTask) {
+                    lastMainTaskIndex = previewTasks.length; // 追加後のインデックス
+                }
+                
+                previewTasks.push(task);
+            }
+        });
             
             // 新しいプレビュー表示
             displayLineByLinePreview();
@@ -2822,14 +2759,8 @@
             const activeTaskCount = previewTasks.filter(t => !t.isSkip).length;
             const mainTaskCount = previewTasks.filter(t => !t.isSkip && t.isMainTask).length;
             const commentCount = previewTasks.filter(t => !t.isSkip && !t.isMainTask).length;
-            const autoDeadlineCount = previewTasks.filter(t => !t.isSkip && t.hasAutoDeadline).length;
             
-            let modeInfo = '';
-            if (document.getElementById('google-todo-mode').checked) {
-                modeInfo = `<div style="font-size: 0.9rem; margin-top: 0.5rem;">📅 GoogleTODO解析モード: ${autoDeadlineCount}個のタスクで期限を自動抽出</div>`;
-            } else {
-                modeInfo = `<div style="font-size: 0.9rem; margin-top: 0.5rem;">✨ インデント行は自動でコメントに設定済み（半角スペース2個以上・全角スペース・タブ）。ドラッグ&ドロップで親子関係を変更可能</div>`;
-            }
+            const modeInfo = `<div style="font-size: 0.9rem; margin-top: 0.5rem;">✨ インデント行は自動でコメントに設定済み（半角スペース2個以上・全角スペース・タブ）。ドラッグ&ドロップで親子関係を変更可能</div>`;
             
             let content = `
                 <div style="margin-bottom: 1rem; padding: 0.75rem; background: #e8f5e8; border-radius: 4px; color: #2f7d2f;">
@@ -3598,10 +3529,15 @@
                         y: Math.min(startY, endY),
                         width: width,
                         height: height,
-                        id: Date.now()
+                        id: Date.now(),
+                        tag: null, // 'task' または 'deadline'
+                        text: null // OCR結果
                     };
                     selectedAreas.push(area);
                     updateSelectionDisplay();
+                    
+                    // タグ選択UIを表示
+                    showAreaTagSelector(selectedAreas.length - 1);
                 }
                 
                 isSelecting = false;
@@ -3636,25 +3572,123 @@
                 ctx.drawImage(currentImage, 0, 0, canvas.width, canvas.height);
             }
             
-            // 保存された選択領域を描画
+            // 保存された選択領域を描画（タグに応じて色分け）
             ctx.setLineDash([]);
             selectedAreas.forEach((area, index) => {
-                ctx.strokeStyle = '#28a745';
-                ctx.lineWidth = 2;
+                let strokeColor = '#6c757d'; // 未分類（グレー）
+                let fillColor = 'rgba(108, 117, 125, 0.1)';
+                let textIcon = '';
+                
+                if (area.tag === 'task') {
+                    strokeColor = '#28a745'; // タスク（緑）
+                    fillColor = 'rgba(40, 167, 69, 0.1)';
+                    textIcon = '📋';
+                } else if (area.tag === 'deadline') {
+                    strokeColor = '#dc3545'; // 期限（赤）
+                    fillColor = 'rgba(220, 53, 69, 0.1)';
+                    textIcon = '📅';
+                }
+                
+                ctx.strokeStyle = strokeColor;
+                ctx.lineWidth = 3;
                 ctx.strokeRect(area.x, area.y, area.width, area.height);
                 
-                ctx.fillStyle = 'rgba(40, 167, 69, 0.1)';
+                ctx.fillStyle = fillColor;
                 ctx.fillRect(area.x, area.y, area.width, area.height);
                 
-                // 番号を表示
-                ctx.fillStyle = '#28a745';
-                ctx.font = '14px Arial';
-                ctx.fillText(`${index + 1}`, area.x + 5, area.y + 18);
+                // 番号とアイコンを表示
+                ctx.fillStyle = strokeColor;
+                ctx.font = 'bold 14px Arial';
+                ctx.fillText(`${textIcon}${index + 1}`, area.x + 5, area.y + 18);
             });
         }
         
         function updateSelectionDisplay() {
-            document.getElementById('selection-count').textContent = `${selectedAreas.length}個の領域を選択中`;
+            const taskCount = selectedAreas.filter(area => area.tag === 'task').length;
+            const deadlineCount = selectedAreas.filter(area => area.tag === 'deadline').length;
+            const untaggedCount = selectedAreas.filter(area => !area.tag).length;
+            
+            let displayText = `${selectedAreas.length}個の領域を選択中`;
+            if (taskCount > 0 || deadlineCount > 0) {
+                displayText += ` (📋タスク:${taskCount}, 📅期限:${deadlineCount}`;
+                if (untaggedCount > 0) {
+                    displayText += `, 未分類:${untaggedCount}`;
+                }
+                displayText += ')';
+            }
+            
+            document.getElementById('selection-count').textContent = displayText;
+        }
+        
+        // タグ選択UIを表示
+        function showAreaTagSelector(areaIndex) {
+            // 既存のタグ選択UIを削除
+            const existingSelector = document.getElementById('area-tag-selector');
+            if (existingSelector) {
+                existingSelector.remove();
+            }
+            
+            const area = selectedAreas[areaIndex];
+            const container = document.getElementById('image-preview-scroll-container');
+            
+            // タグ選択UIを作成
+            const selectorDiv = document.createElement('div');
+            selectorDiv.id = 'area-tag-selector';
+            selectorDiv.style.cssText = `
+                position: absolute;
+                top: ${area.y + area.height + 10}px;
+                left: ${area.x}px;
+                background: white;
+                border: 2px solid #007bff;
+                border-radius: 8px;
+                padding: 0.5rem;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+                z-index: 1000;
+                display: flex;
+                gap: 0.5rem;
+                align-items: center;
+                font-size: 0.9rem;
+            `;
+            
+            selectorDiv.innerHTML = `
+                <span style="font-weight: bold; color: #495057;">この領域は：</span>
+                <button onclick="setAreaTag(${areaIndex}, 'task')" 
+                        style="padding: 0.4rem 0.8rem; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; display: flex; align-items: center; gap: 0.3rem;">
+                    📋 タスク名
+                </button>
+                <button onclick="setAreaTag(${areaIndex}, 'deadline')" 
+                        style="padding: 0.4rem 0.8rem; background: #dc3545; color: white; border: none; border-radius: 4px; cursor: pointer; display: flex; align-items: center; gap: 0.3rem;">
+                    📅 期限
+                </button>
+                <button onclick="setAreaTag(${areaIndex}, null)" 
+                        style="padding: 0.4rem 0.8rem; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                    ❌ 未分類
+                </button>
+            `;
+            
+            container.appendChild(selectorDiv);
+            
+            // 3秒後に自動で消える（ユーザーが選択しなかった場合）
+            setTimeout(() => {
+                if (document.getElementById('area-tag-selector')) {
+                    selectorDiv.remove();
+                }
+            }, 5000);
+        }
+        
+        // 領域にタグを設定
+        function setAreaTag(areaIndex, tag) {
+            if (selectedAreas[areaIndex]) {
+                selectedAreas[areaIndex].tag = tag;
+                updateSelectionDisplay();
+                redrawCanvas(document.getElementById('image-canvas'));
+                
+                // タグ選択UIを削除
+                const selector = document.getElementById('area-tag-selector');
+                if (selector) {
+                    selector.remove();
+                }
+            }
         }
         
         function clearSelections() {
@@ -3682,12 +3716,12 @@
             }
             
             showOCRProgress();
-            let allText = '';
             
             try {
+                // 各領域のOCR処理
                 for (let i = 0; i < selectedAreas.length; i++) {
                     const area = selectedAreas[i];
-                    updateOCRProgress(10 + (i / selectedAreas.length) * 80, `🔍 領域 ${i + 1}/${selectedAreas.length} を処理中...`);
+                    updateOCRProgress(10 + (i / selectedAreas.length) * 70, `🔍 領域 ${i + 1}/${selectedAreas.length} を処理中...`);
                     
                     // 選択領域を切り抜き
                     const croppedCanvas = document.createElement('canvas');
@@ -3710,33 +3744,134 @@
                     
                     // OCR処理
                     const text = await performOCROnCanvas(croppedCanvas);
-                    if (text.trim()) {
-                        // 領域番号を除外してテキストのみ追加
-                        allText += text.trim() + '\n';
-                    }
+                    area.text = text.trim(); // 結果を領域に保存
                 }
                 
-                hideOCRProgress();
+                updateOCRProgress(85, '🔗 タスクと期限をペア化中...');
                 
-                if (allText.trim()) {
-                    // 既存のテキストに追加
+                // タグ付きの領域を自動ペア化
+                const pairedTasks = pairTasksAndDeadlines();
+                
+                updateOCRProgress(95, '📝 結果を整理中...');
+                
+                if (pairedTasks.length > 0) {
+                    // 結果をテキストエリアに追加
+                    const formattedText = formatPairedTasks(pairedTasks);
                     const currentText = document.getElementById('import-text').value;
                     const separator = currentText ? '\n\n' : '';
-                    document.getElementById('import-text').value = currentText + separator + allText;
+                    document.getElementById('import-text').value = currentText + separator + formattedText;
                     
                     // 成功メッセージ
-                    alert(`✅ OCR完了！\n${selectedAreas.length}個の領域からテキストを認識しました。`);
+                    const taskCount = pairedTasks.filter(t => t.type === 'task').length;
+                    const pairedCount = pairedTasks.filter(t => t.deadline).length;
+                    alert(`✅ OCR完了！\n📋 ${taskCount}個のタスクを認識\n📅 ${pairedCount}個のタスクに期限を自動設定`);
                     
                     // 画像プレビューを閉じる
                     hideImagePreview();
                 } else {
-                    alert('選択した領域からテキストを認識できませんでした。');
+                    alert('有効なタスクを認識できませんでした。タグ設定を確認してください。');
                 }
+                
+                hideOCRProgress();
             } catch (error) {
                 hideOCRProgress();
                 console.error('Area OCR Error:', error);
                 alert('OCR処理でエラーが発生しました。');
             }
+        }
+        
+        // タスクと期限をペア化
+        function pairTasksAndDeadlines() {
+            const taskAreas = selectedAreas.filter(area => area.tag === 'task' && area.text);
+            const deadlineAreas = selectedAreas.filter(area => area.tag === 'deadline' && area.text);
+            const untaggedAreas = selectedAreas.filter(area => !area.tag && area.text);
+            
+            const pairedTasks = [];
+            
+            // タスク領域を基準にペア化
+            taskAreas.forEach(taskArea => {
+                const task = {
+                    type: 'task',
+                    title: taskArea.text,
+                    deadline: null,
+                    taskArea: taskArea
+                };
+                
+                // 最も近い期限領域を探す
+                let closestDeadline = null;
+                let minDistance = Infinity;
+                
+                deadlineAreas.forEach(deadlineArea => {
+                    // 距離を計算（中心点間の距離）
+                    const taskCenterX = taskArea.x + taskArea.width / 2;
+                    const taskCenterY = taskArea.y + taskArea.height / 2;
+                    const deadlineCenterX = deadlineArea.x + deadlineArea.width / 2;
+                    const deadlineCenterY = deadlineArea.y + deadlineArea.height / 2;
+                    
+                    const distance = Math.sqrt(
+                        Math.pow(taskCenterX - deadlineCenterX, 2) + 
+                        Math.pow(taskCenterY - deadlineCenterY, 2)
+                    );
+                    
+                    if (distance < minDistance) {
+                        minDistance = distance;
+                        closestDeadline = deadlineArea;
+                    }
+                });
+                
+                if (closestDeadline) {
+                    task.deadline = parseDeadlineText(closestDeadline.text);
+                    // 使用済みの期限領域を削除
+                    const index = deadlineAreas.indexOf(closestDeadline);
+                    if (index > -1) {
+                        deadlineAreas.splice(index, 1);
+                    }
+                }
+                
+                pairedTasks.push(task);
+            });
+            
+            // 未分類の領域も追加（タスクとして扱う）
+            untaggedAreas.forEach(area => {
+                pairedTasks.push({
+                    type: 'task',
+                    title: area.text,
+                    deadline: null
+                });
+            });
+            
+            return pairedTasks;
+        }
+        
+        // 期限テキストを解析
+        function parseDeadlineText(text) {
+            // 既存のGoogleTODO解析ロジックを再利用
+            const parsed = parseGoogleTodoText(text);
+            if (parsed.length > 0 && parsed[0].deadline) {
+                return parsed[0].deadline;
+            }
+            
+            // 簡易的な日付解析
+            const dateMatch = text.match(/(\d{1,2})月(\d{1,2})日/);
+            if (dateMatch) {
+                const month = dateMatch[1].padStart(2, '0');
+                const day = dateMatch[2].padStart(2, '0');
+                const currentYear = new Date().getFullYear();
+                return `${currentYear}-${month}-${day}`;
+            }
+            
+            return null;
+        }
+        
+        // ペア化されたタスクをフォーマット
+        function formatPairedTasks(pairedTasks) {
+            return pairedTasks.map(task => {
+                let line = task.title;
+                if (task.deadline) {
+                    line += ` ${task.deadline}`;
+                }
+                return line;
+            }).join('\n');
         }
         
         // 画像前処理を適用
