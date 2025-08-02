@@ -1052,8 +1052,8 @@
                                     マウスでドラッグして選択領域を作成し、「OCR実行」でテキスト化
                                 </div>
                             </div>
-                            <div style="padding: 1rem; max-height: 600px; overflow: auto; position: relative;">
-                                <div id="image-canvas-container" style="position: relative; display: inline-block; border: 1px solid #ccc;">
+                            <div id="image-preview-scroll-container" style="padding: 1rem; max-height: 600px; overflow: auto; position: relative;">
+                                <div id="image-canvas-container" style="position: relative; display: inline-block; border: 1px solid #ccc; transform-origin: top left;">
                                     <canvas id="image-canvas" style="max-width: 100%; height: auto; cursor: crosshair;"></canvas>
                                     <!-- 選択領域を表示するオーバーレイ -->
                                     <div id="selection-overlay" style="position: absolute; top: 0; left: 0; pointer-events: none;"></div>
@@ -3371,26 +3371,27 @@
                         const canvas = document.getElementById('image-canvas');
                         const ctx = canvas.getContext('2d');
                         
-                        // キャンバスサイズを調整（最大1200px幅）
-                        const maxWidth = 1200;
+                        // 元画像の解像度を維持（表示はスタイルで調整）
                         let { width, height } = img;
+                        imageScale = 1; // 常に1:1で保持
                         
-                        if (width > maxWidth) {
-                            imageScale = maxWidth / width;
-                            width = maxWidth;
-                            height = height * imageScale;
-                        } else {
-                            imageScale = 1;
-                        }
-                        
-                        canvas.width = width;
-                        canvas.height = height;
+                        // 高解像度キャンバス設定
+                        const dpr = window.devicePixelRatio || 1;
+                        canvas.width = width * dpr;
+                        canvas.height = height * dpr;
+                        canvas.style.width = width + 'px';
+                        canvas.style.height = height + 'px';
                         
                         // 高画質設定
-                        ctx.imageSmoothingEnabled = true;
-                        ctx.imageSmoothingQuality = 'high';
+                        ctx.scale(dpr, dpr);
+                        ctx.imageSmoothingEnabled = false; // ピクセルパーフェクト
                         
                         ctx.drawImage(img, 0, 0, width, height);
+                        
+                        // コンテナの最大幅を設定
+                        const container = document.getElementById('image-canvas-container');
+                        container.style.maxWidth = '100%';
+                        container.style.overflow = 'auto';
                         
                         // 選択領域をリセット
                         selectedAreas = [];
@@ -3418,8 +3419,12 @@
             
             newCanvas.addEventListener('mousedown', function(e) {
                 const rect = newCanvas.getBoundingClientRect();
-                startX = (e.clientX - rect.left);
-                startY = (e.clientY - rect.top);
+                const style = window.getComputedStyle(newCanvas);
+                const scaleX = newCanvas.width / parseFloat(style.width);
+                const scaleY = newCanvas.height / parseFloat(style.height);
+                
+                startX = (e.clientX - rect.left) * scaleX / (window.devicePixelRatio || 1);
+                startY = (e.clientY - rect.top) * scaleY / (window.devicePixelRatio || 1);
                 isSelecting = true;
             });
             
@@ -3427,19 +3432,49 @@
                 if (!isSelecting) return;
                 
                 const rect = newCanvas.getBoundingClientRect();
-                endX = (e.clientX - rect.left);
-                endY = (e.clientY - rect.top);
+                const style = window.getComputedStyle(newCanvas);
+                const scaleX = newCanvas.width / parseFloat(style.width);
+                const scaleY = newCanvas.height / parseFloat(style.height);
+                
+                endX = (e.clientX - rect.left) * scaleX / (window.devicePixelRatio || 1);
+                endY = (e.clientY - rect.top) * scaleY / (window.devicePixelRatio || 1);
                 
                 // 選択範囲を表示
                 drawSelection(newCanvas, startX, startY, endX, endY);
+                
+                // 自動スクロール
+                const scrollContainer = document.getElementById('image-preview-scroll-container');
+                const containerRect = scrollContainer.getBoundingClientRect();
+                const scrollSpeed = 10;
+                
+                // 下方向スクロール
+                if (e.clientY > containerRect.bottom - 50) {
+                    scrollContainer.scrollTop += scrollSpeed;
+                }
+                // 上方向スクロール
+                else if (e.clientY < containerRect.top + 50) {
+                    scrollContainer.scrollTop -= scrollSpeed;
+                }
+                // 右方向スクロール
+                if (e.clientX > containerRect.right - 50) {
+                    scrollContainer.scrollLeft += scrollSpeed;
+                }
+                // 左方向スクロール
+                else if (e.clientX < containerRect.left + 50) {
+                    scrollContainer.scrollLeft -= scrollSpeed;
+                }
             });
             
             newCanvas.addEventListener('mouseup', function(e) {
                 if (!isSelecting) return;
                 
                 const rect = newCanvas.getBoundingClientRect();
-                endX = (e.clientX - rect.left);
-                endY = (e.clientY - rect.top);
+                const style = window.getComputedStyle(newCanvas);
+                const scaleX = newCanvas.width / parseFloat(style.width);
+                const scaleY = newCanvas.height / parseFloat(style.height);
+                
+                endX = (e.clientX - rect.left) * scaleX / (window.devicePixelRatio || 1);
+                endY = (e.clientY - rect.top) * scaleY / (window.devicePixelRatio || 1);
                 
                 // 選択領域を保存（最小10x10ピクセル）
                 const width = Math.abs(endX - startX);
@@ -3503,6 +3538,8 @@
                 ctx.font = '14px Arial';
                 ctx.fillText(`${index + 1}`, area.x + 5, area.y + 18);
             });
+            
+            ctx.restore();
         }
         
         function updateSelectionDisplay() {
