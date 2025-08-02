@@ -1069,18 +1069,27 @@
                                 <details style="background: #f8f9fa; padding: 0.5rem; border-radius: 4px;">
                                     <summary style="cursor: pointer; font-size: 0.85rem; color: #666;">🎯 OCR精度向上設定</summary>
                                     <div style="margin-top: 0.5rem; display: flex; flex-direction: column; gap: 0.5rem;">
-                                        <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem;">
-                                            <input type="checkbox" id="ocr-enhance-contrast" checked> コントラスト強化
-                                        </label>
-                                        <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem;">
-                                            <input type="checkbox" id="ocr-upscale" checked> 2倍拡大処理
-                                        </label>
-                                        <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem;">
-                                            <input type="checkbox" id="ocr-denoise"> ノイズ除去
-                                        </label>
-                                        <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem;">
-                                            <input type="checkbox" id="ocr-cleanup-symbols" checked> 記号クリーンアップ（○●→数字）
-                                        </label>
+                                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
+                                            <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem;">
+                                                <input type="checkbox" id="ocr-enhance-contrast"> コントラスト強化
+                                            </label>
+                                            <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem;">
+                                                <input type="checkbox" id="ocr-upscale"> 2倍拡大処理
+                                            </label>
+                                            <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem;">
+                                                <input type="checkbox" id="ocr-grayscale"> グレースケール化
+                                            </label>
+                                            <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem;">
+                                                <input type="checkbox" id="ocr-cleanup-symbols"> 記号クリーンアップ
+                                            </label>
+                                        </div>
+                                        <div style="margin-top: 0.5rem; display: flex; gap: 0.5rem;">
+                                            <button onclick="previewProcessing()" style="padding: 0.5rem; background: #17a2b8; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">🔍 処理プレビュー</button>
+                                            <button onclick="resetOCRSettings()" style="padding: 0.5rem; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">🔄 リセット</button>
+                                        </div>
+                                        <div style="margin-top: 0.5rem; padding: 0.5rem; background: #d1ecf1; border-radius: 4px; font-size: 0.8rem; color: #0c5460;">
+                                            💡 ヒント: まずは全てオフで試し、精度が悪い場合のみ機能を有効にしてください
+                                        </div>
                                     </div>
                                 </details>
                             </div>
@@ -3643,17 +3652,28 @@
             const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
             const data = imageData.data;
             
-            // コントラスト強化
-            if (document.getElementById('ocr-enhance-contrast').checked) {
+            // グレースケール化（穏やか）
+            if (document.getElementById('ocr-grayscale').checked) {
                 for (let i = 0; i < data.length; i += 4) {
-                    // グレースケール化
                     const gray = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
-                    // コントラスト強化（中間値を境に白黒化）
-                    const threshold = 128;
-                    const value = gray > threshold ? 255 : 0;
-                    data[i] = data[i + 1] = data[i + 2] = value;
+                    data[i] = data[i + 1] = data[i + 2] = gray;
                 }
                 ctx.putImageData(imageData, 0, 0);
+            }
+            
+            // コントラスト強化（穏やかな二値化）
+            if (document.getElementById('ocr-enhance-contrast').checked) {
+                const contrastImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                const contrastData = contrastImageData.data;
+                
+                for (let i = 0; i < contrastData.length; i += 4) {
+                    const gray = contrastData[i] * 0.299 + contrastData[i + 1] * 0.587 + contrastData[i + 2] * 0.114;
+                    // より穏やかな闾値で二値化
+                    const threshold = 140; // 128より高めに設定
+                    const value = gray > threshold ? 255 : 0;
+                    contrastData[i] = contrastData[i + 1] = contrastData[i + 2] = value;
+                }
+                ctx.putImageData(contrastImageData, 0, 0);
             }
             
             // 2倍拡大処理
@@ -3677,21 +3697,15 @@
         function postprocessOCRText(text) {
             let processed = text;
             
-            // 記号クリーンアップ
+            // 記号クリーンアップ（控えめ）
             if (document.getElementById('ocr-cleanup-symbols').checked) {
-                // ○●→数字の変換パターン
+                // 全角数字→半角数字のみ（安全）
                 processed = processed
-                    .replace(/[○◯◌⚪]/g, '0') // 白丸→ 0
-                    .replace(/[●•⚫]/g, '1') // 黒丸→ 1
-                    .replace(/[０-９]/g, (match) => String.fromCharCode(match.charCodeAt(0) - 0xFEE0)) // 全角数字→半角
-                    .replace(/[OoＯｏ]/g, '0') // Oを数字の0に
-                    .replace(/[IlＩｌ]/g, '1') // I,lを数字の1に
-                    .replace(/[〇]/g, '0'); // 〇→ 0
-                
-                // 不要な記号の除去
-                processed = processed
-                    .replace(/[\u2500-\u257F]/g, '') // 罫線文字
-                    .replace(/[\u2580-\u259F]/g, ''); // ブロック要素
+                    .replace(/[０-９]/g, (match) => String.fromCharCode(match.charCodeAt(0) - 0xFEE0))
+                    // 明らかな誤認識のみ修正
+                    .replace(/\b[Oo]\.?\s*(?=\d)/g, '0') // O.数字 → 0数字
+                    .replace(/\b[Il]\s*(?=\d)/g, '1') // I数字 → 1数字
+                    .replace(/\b[Il]\b/g, '1'); // 単体のIやl→ 1
             }
             
             return processed.trim();
@@ -3725,6 +3739,75 @@
                 } catch (error) {
                     reject(error);
                 }
+            });
+        }
+        
+        // OCR設定リセット
+        function resetOCRSettings() {
+            document.getElementById('ocr-enhance-contrast').checked = false;
+            document.getElementById('ocr-upscale').checked = false;
+            document.getElementById('ocr-grayscale').checked = false;
+            document.getElementById('ocr-cleanup-symbols').checked = false;
+        }
+        
+        // 処理プレビュー（最初の選択領域でテスト）
+        function previewProcessing() {
+            if (selectedAreas.length === 0) {
+                alert('選択領域がありません。まず領域を選択してください。');
+                return;
+            }
+            
+            const area = selectedAreas[0];
+            const croppedCanvas = document.createElement('canvas');
+            const croppedCtx = croppedCanvas.getContext('2d');
+            
+            croppedCanvas.width = area.width;
+            croppedCanvas.height = area.height;
+            
+            croppedCtx.imageSmoothingEnabled = false;
+            croppedCtx.drawImage(
+                currentImage,
+                area.x, area.y, area.width, area.height,
+                0, 0, area.width, area.height
+            );
+            
+            // 前処理を適用
+            preprocessImage(croppedCanvas).then(processedCanvas => {
+                // 新しいウィンドウで表示
+                const newWindow = window.open('', '_blank');
+                newWindow.document.write(`
+                    <html>
+                        <head><title>OCR前処理プレビュー</title></head>
+                        <body style="margin: 20px; font-family: Arial, sans-serif;">
+                            <h3>元画像 vs 処理後</h3>
+                            <div style="display: flex; gap: 20px;">
+                                <div>
+                                    <h4>元画像</h4>
+                                    <canvas id="original" style="border: 1px solid #ccc;"></canvas>
+                                </div>
+                                <div>
+                                    <h4>処理後</h4>
+                                    <canvas id="processed" style="border: 1px solid #ccc;"></canvas>
+                                </div>
+                            </div>
+                        </body>
+                    </html>
+                `);
+                
+                const originalCanvas = newWindow.document.getElementById('original');
+                const processedCanvasElement = newWindow.document.getElementById('processed');
+                
+                // 元画像を表示
+                originalCanvas.width = croppedCanvas.width;
+                originalCanvas.height = croppedCanvas.height;
+                const originalCtx = originalCanvas.getContext('2d');
+                originalCtx.drawImage(croppedCanvas, 0, 0);
+                
+                // 処理後を表示
+                processedCanvasElement.width = processedCanvas.width;
+                processedCanvasElement.height = processedCanvas.height;
+                const processedCtx = processedCanvasElement.getContext('2d');
+                processedCtx.drawImage(processedCanvas, 0, 0);
             });
         }
         
