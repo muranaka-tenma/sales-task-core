@@ -1086,6 +1086,7 @@
                                         <div style="margin-top: 0.5rem; display: flex; gap: 0.5rem;">
                                             <button onclick="previewProcessing()" style="padding: 0.5rem; background: #17a2b8; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">🔍 処理プレビュー</button>
                                             <button onclick="resetOCRSettings()" style="padding: 0.5rem; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">🔄 リセット</button>
+                                            <button onclick="testDeadlineParsing()" style="padding: 0.5rem; background: #ffc107; color: black; border: none; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">🧪 期限テスト</button>
                                         </div>
                                         <div style="margin-top: 0.5rem; padding: 0.5rem; background: #d1ecf1; border-radius: 4px; font-size: 0.8rem; color: #0c5460;">
                                             💡 ヒント: ①→ 1, ○→ 0 などの誤認識がある場合は「数字記号修正」を有効に
@@ -3745,9 +3746,12 @@
                     // OCR処理（期限領域は特別処理）
                     let text;
                     if (area.tag === 'deadline') {
+                        console.log(`期限領域 ${i + 1} の処理開始:`, area);
                         text = await performDeadlineOCR(croppedCanvas);
+                        console.log(`期限領域 ${i + 1} OCR結果:`, text);
                     } else {
                         text = await performOCROnCanvas(croppedCanvas);
+                        console.log(`タスク領域 ${i + 1} OCR結果:`, text);
                     }
                     area.text = text.trim(); // 結果を領域に保存
                 }
@@ -3791,6 +3795,11 @@
             const deadlineAreas = selectedAreas.filter(area => area.tag === 'deadline' && area.text);
             const untaggedAreas = selectedAreas.filter(area => !area.tag && area.text);
             
+            console.log('=== ペア化処理開始 ===');
+            console.log('タスク領域:', taskAreas.map(a => ({ text: a.text, tag: a.tag })));
+            console.log('期限領域:', deadlineAreas.map(a => ({ text: a.text, tag: a.tag })));
+            console.log('未分類領域:', untaggedAreas.map(a => ({ text: a.text, tag: a.tag })));
+            
             const pairedTasks = [];
             
             // タスク領域を基準にペア化
@@ -3825,12 +3834,16 @@
                 });
                 
                 if (closestDeadline) {
+                    console.log(`タスク "${taskArea.text}" に最も近い期限領域:`, closestDeadline.text);
                     task.deadline = parseDeadlineText(closestDeadline.text);
+                    console.log(`解析結果:`, task.deadline);
                     // 使用済みの期限領域を削除
                     const index = deadlineAreas.indexOf(closestDeadline);
                     if (index > -1) {
                         deadlineAreas.splice(index, 1);
                     }
+                } else {
+                    console.log(`タスク "${taskArea.text}" に対する期限領域が見つからない`);
                 }
                 
                 pairedTasks.push(task);
@@ -4334,6 +4347,31 @@
             document.getElementById('ocr-upscale').checked = false;
             document.getElementById('ocr-grayscale').checked = false;
             document.getElementById('ocr-cleanup-symbols').checked = false;
+        }
+        
+        // 期限解析テスト
+        function testDeadlineParsing() {
+            const testTexts = [
+                '12月15日(月), 14:30',
+                '12月15日(月)',
+                '12月15日, 14:30',
+                '12月15日',
+                '14:30',
+                '1月1日(水), 09:00',
+                '③月②⑤日(木), ①④:③⓪', // 囲み数字テスト
+                'ノイズ12月15日(月), 14:30ノイズ', // ノイズ入り
+                '無効な期限テキスト'
+            ];
+            
+            console.log('=== 期限解析テスト開始 ===');
+            testTexts.forEach((text, index) => {
+                console.log(`\nテスト ${index + 1}: "${text}"`);
+                const result = parseDeadlineText(text);
+                console.log(`結果: ${result}`);
+            });
+            console.log('=== 期限解析テスト終了 ===');
+            
+            alert('期限解析テストを実行しました。コンソール（F12）で結果を確認してください。');
         }
         
         // 処理プレビュー（最初の選択領域でテスト）
