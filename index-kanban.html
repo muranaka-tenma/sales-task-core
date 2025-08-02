@@ -33,6 +33,21 @@
             font-weight: 600;
         }
         
+        .settings-btn {
+            background: rgba(255,255,255,0.2);
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1.2rem;
+            transition: all 0.2s;
+        }
+        
+        .settings-btn:hover {
+            background: rgba(255,255,255,0.3);
+            transform: scale(1.1);
+        }
+        
         /* 統計表示 */
         .stats-bar {
             background: var(--stats-bg, linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%));
@@ -769,7 +784,7 @@
     <div class="header">
         <div class="header-title">🎯 営業タスク管理 - Kanbanボード</div>
         <div class="header-controls">
-            <button onclick="openThemeModal()" class="theme-btn" title="テーマカラー変更">🎨</button>
+            <button onclick="openSettingsModal()" class="settings-btn" title="設定">⚙️</button>
         </div>
     </div>
     
@@ -943,6 +958,74 @@
                 </div>
                 <div class="theme-option" style="background: linear-gradient(135deg, #1a202c, #2d3748)" onclick="setTheme('black', '#1a202c', '#2d3748', '#171923', '#e2e8f0')" data-theme="black">
                     <div class="theme-name">ブラック</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 設定モーダル -->
+    <div id="settingsModal" class="theme-modal">
+        <div class="theme-modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">⚙️ 設定</h3>
+                <button class="close-btn" onclick="closeSettingsModal()">&times;</button>
+            </div>
+            
+            <div style="padding: 1rem 0;">
+                <!-- テーマカラー設定 -->
+                <div class="setting-section">
+                    <h4 style="margin-bottom: 1rem; color: #172b4d;">🎨 テーマカラー</h4>
+                    <div class="theme-grid">
+                        <div class="theme-option" style="background: linear-gradient(135deg, #026aa7, #0079bf)" onclick="setTheme('default', '#026aa7', '#0079bf', '#005a8b', '#e3f2fd')" data-theme="default">
+                            <div class="theme-name">デフォルト</div>
+                        </div>
+                        <div class="theme-option" style="background: linear-gradient(135deg, #667eea, #5a67d8)" onclick="setTheme('purple', '#667eea', '#5a67d8', '#4c51bf', '#eef2ff')" data-theme="purple">
+                            <div class="theme-name">パープル</div>
+                        </div>
+                        <div class="theme-option" style="background: linear-gradient(135deg, #e53e3e, #c53030)" onclick="setTheme('red', '#e53e3e', '#c53030', '#9b2c2c', '#fed7d7')" data-theme="red">
+                            <div class="theme-name">レッド</div>
+                        </div>
+                        <div class="theme-option" style="background: linear-gradient(135deg, #38a169, #2f855a)" onclick="setTheme('green', '#38a169', '#2f855a', '#276749', '#c6f6d5')" data-theme="green">
+                            <div class="theme-name">グリーン</div>
+                        </div>
+                        <div class="theme-option" style="background: linear-gradient(135deg, #d69e2e, #b7791f)" onclick="setTheme('orange', '#d69e2e', '#b7791f', '#975a16', '#fef5e7')" data-theme="orange">
+                            <div class="theme-name">オレンジ</div>
+                        </div>
+                        <div class="theme-option" style="background: linear-gradient(135deg, #3182ce, #2b6cb0)" onclick="setTheme('sky', '#3182ce', '#2b6cb0', '#2a4e7c', '#e0f2fe')" data-theme="sky">
+                            <div class="theme-name">スカイ</div>
+                        </div>
+                        <div class="theme-option" style="background: linear-gradient(135deg, #319795, #2c7a7b)" onclick="setTheme('teal', '#319795', '#2c7a7b', '#285e61', '#e6fffa')" data-theme="teal">
+                            <div class="theme-name">ティール</div>
+                        </div>
+                        <div class="theme-option" style="background: linear-gradient(135deg, #d53f8c, #b83280)" onclick="setTheme('pink', '#d53f8c', '#b83280', '#97266d', '#fed7e2')" data-theme="pink">
+                            <div class="theme-name">ピンク</div>
+                        </div>
+                        <div class="theme-option" style="background: linear-gradient(135deg, #805ad5, #6b46c1)" onclick="setTheme('violet', '#805ad5', '#6b46c1', '#553c9a', '#faf5ff')" data-theme="violet">
+                            <div class="theme-name">バイオレット</div>
+                        </div>
+                        <div class="theme-option" style="background: linear-gradient(135deg, #1a202c, #2d3748)" onclick="setTheme('black', '#1a202c', '#2d3748', '#171923', '#e2e8f0')" data-theme="black">
+                            <div class="theme-name">ブラック</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- アラート設定 -->
+                <div class="setting-section" style="margin-top: 2rem;">
+                    <h4 style="margin-bottom: 1rem; color: #172b4d;">🔔 期限アラート設定</h4>
+                    <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                        <label style="display: flex; align-items: center; gap: 0.5rem;">
+                            <input type="checkbox" id="alert-3hours" checked>
+                            <span>3時間前にアラート</span>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 0.5rem;">
+                            <input type="checkbox" id="alert-1day">
+                            <span>1日前にアラート</span>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 0.5rem;">
+                            <input type="checkbox" id="alert-overdue" checked>
+                            <span>期限切れ後にアラート</span>
+                        </label>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1971,14 +2054,32 @@
             saveTasks(); // 通知フラグを保存
         }
         
-        // テーマ関連の関数
-        function openThemeModal() {
-            document.getElementById('themeModal').style.display = 'block';
+        // 設定関連の関数
+        function openSettingsModal() {
+            document.getElementById('settingsModal').style.display = 'block';
             updateThemeSelection();
+            loadAlertSettings();
         }
         
-        function closeThemeModal() {
-            document.getElementById('themeModal').style.display = 'none';
+        function closeSettingsModal() {
+            document.getElementById('settingsModal').style.display = 'none';
+            saveAlertSettings();
+        }
+        
+        function loadAlertSettings() {
+            const settings = JSON.parse(localStorage.getItem('alertSettings') || '{"3hours": true, "1day": false, "overdue": true}');
+            document.getElementById('alert-3hours').checked = settings['3hours'];
+            document.getElementById('alert-1day').checked = settings['1day'];
+            document.getElementById('alert-overdue').checked = settings.overdue;
+        }
+        
+        function saveAlertSettings() {
+            const settings = {
+                '3hours': document.getElementById('alert-3hours').checked,
+                '1day': document.getElementById('alert-1day').checked,
+                'overdue': document.getElementById('alert-overdue').checked
+            };
+            localStorage.setItem('alertSettings', JSON.stringify(settings));
         }
         
         function setTheme(themeName, color, secondaryColor, darkColor, lightColor) {
@@ -2011,7 +2112,7 @@
                 themeName: themeName
             }));
             
-            closeThemeModal();
+            closeSettingsModal();
         }
         
         function updateThemeSelection() {
