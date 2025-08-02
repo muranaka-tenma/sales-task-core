@@ -2713,7 +2713,7 @@
                     <div style="font-size: 0.9rem; margin-top: 0.5rem;">✨ 空白がある行は自動でコメントに設定済み。ドラッグ&ドロップで親子関係を変更可能：</div>
                 </div>
                 
-                <div style="display: flex; flex-direction: column; gap: 1rem; padding: 1rem; background: #fafafa; border-radius: 8px;" id="preview-container">
+                <div style="display: flex; flex-direction: column; gap: 1.5rem; padding: 1.5rem; background: #f0f2f5; border-radius: 12px;" id="preview-container">
             `;
             
             previewTasks.forEach((task, index) => {
@@ -2726,7 +2726,7 @@
                 const bgColor = isAutoComment ? '#f8fff9' : 'white';
                 
                 content += `
-                    <div style="border: 2px solid ${borderColor}; border-radius: 8px; padding: 1rem; background: ${bgColor}; transition: all 0.2s; cursor: move; margin-bottom: 0.5rem; min-height: 100px;" 
+                    <div style="border: 3px solid ${borderColor}; border-radius: 12px; background: ${bgColor}; transition: all 0.2s; cursor: move; margin-bottom: 1rem; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);" 
                          draggable="true" 
                          ondragstart="handleDragStart(event, ${index})" 
                          ondragend="handleDragEnd(event)"
@@ -2735,34 +2735,47 @@
                          ondragenter="handleDragEnter(event)"
                          ondragleave="handleDragLeave(event)"
                          id="preview-item-${index}">
-                        ${isAutoComment ? '<div style="font-size: 0.9rem; color: #28a745; margin-bottom: 0.75rem; font-weight: bold;">✨ 自動判定：コメント</div>' : ''}
-                        <div style="display: flex; flex-direction: column; gap: 0.75rem;">
-                            <div style="font-family: monospace; background: #f8f9fa; padding: 1rem; border-radius: 6px; font-size: 1rem; position: relative; min-height: 50px; display: flex; align-items: center;">
-                                <div style="position: absolute; left: 0.5rem; top: 0.5rem; font-size: 1rem; color: #666; cursor: grab;">⋮⋮</div>
-                                <div style="margin-left: 2rem; flex: 1; word-break: break-all;">"${task.originalLine}"</div>
+                        
+                        <!-- ドラッグハンドル -->
+                        <div style="background: ${borderColor}; padding: 0.5rem; text-align: center; color: white; font-weight: bold; cursor: grab; user-select: none;">
+                            ⋮⋮⋮ ${isAutoComment ? '✨ 自動判定：コメント' : 'ドラッグしてコメント化'} ⋮⋮⋮
+                        </div>
+                        
+                        <!-- テキスト表示エリア -->
+                        <div style="padding: 1.5rem; background: white;">
+                            <div style="font-family: monospace; background: #f8f9fa; padding: 1.5rem; border-radius: 8px; font-size: 1.1rem; min-height: 60px; word-break: break-all; line-height: 1.4; border-left: 4px solid ${borderColor};">
+                                "${task.originalLine}"
                             </div>
-                            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.75rem;">
-                                <div>
-                                    <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; font-size: 0.9rem; color: #333;">種類</label>
-                                    <select onchange="updateTaskType(${index}, this.value)" style="width: 100%; padding: 0.75rem; border: 2px solid #ddd; border-radius: 6px; font-size: 0.95rem; background: white;">
+                        </div>
+                        
+                        <!-- 設定エリア -->
+                        <div style="padding: 1.5rem; background: #fafafa; border-top: 1px solid #eee;">
+                            <div style="display: flex; flex-direction: column; gap: 1rem;">
+                                <div style="display: flex; align-items: center; gap: 1rem;">
+                                    <label style="font-weight: 600; min-width: 80px; color: #333;">種類:</label>
+                                    <select onchange="updateTaskType(${index}, this.value)" style="flex: 1; padding: 0.75rem; border: 2px solid #ddd; border-radius: 8px; font-size: 1rem; background: white;">
                                         <option value="main" ${task.isMainTask ? 'selected' : ''}>📋 メインタスク</option>
                                         <option value="comment" ${!task.isMainTask ? 'selected' : ''}>💬 コメント</option>
                                         <option value="skip">⏭️ スキップ</option>
                                     </select>
                                 </div>
-                                <div>
-                                    <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; font-size: 0.9rem; color: #333;">親タスク</label>
-                                    <select onchange="updateTaskParent(${index}, this.value)" style="width: 100%; padding: 0.75rem; border: 2px solid #ddd; border-radius: 6px; font-size: 0.95rem; background: white;" ${task.isMainTask ? 'disabled' : ''} id="parent-select-${index}">
+                                
+                                ${!task.isMainTask ? `
+                                <div style="display: flex; align-items: center; gap: 1rem;">
+                                    <label style="font-weight: 600; min-width: 80px; color: #333;">親タスク:</label>
+                                    <select onchange="updateTaskParent(${index}, this.value)" style="flex: 1; padding: 0.75rem; border: 2px solid #ddd; border-radius: 8px; font-size: 1rem; background: white;" id="parent-select-${index}">
                                         <option value="">－</option>
                                         ${mainTaskOptions}
                                     </select>
                                 </div>
-                                <div>
-                                    <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; font-size: 0.9rem; color: #333;">進捗ステータス</label>
-                                    <select onchange="updateTaskColumn(${index}, this.value)" style="width: 100%; padding: 0.75rem; border: 2px solid #ddd; border-radius: 6px; font-size: 0.95rem; background: white;" ${!task.isMainTask ? 'disabled' : ''} id="column-select-${index}">
+                                ` : `
+                                <div style="display: flex; align-items: center; gap: 1rem;">
+                                    <label style="font-weight: 600; min-width: 80px; color: #333;">ステータス:</label>
+                                    <select onchange="updateTaskColumn(${index}, this.value)" style="flex: 1; padding: 0.75rem; border: 2px solid #ddd; border-radius: 8px; font-size: 1rem; background: white;" id="column-select-${index}">
                                         ${columns.map(c => `<option value="${c.id}" ${task.columnId === c.id ? 'selected' : ''}>${c.title}</option>`).join('')}
                                     </select>
                                 </div>
+                                `}
                             </div>
                         </div>
                     </div>
