@@ -1059,11 +1059,30 @@
                                     <div id="selection-overlay" style="position: absolute; top: 0; left: 0; pointer-events: none;"></div>
                                 </div>
                             </div>
-                            <div style="padding: 1rem; border-top: 1px solid #ddd; display: flex; gap: 0.5rem; align-items: center;">
-                                <button onclick="processSelectedAreas()" style="padding: 0.75rem; background: #0079bf; color: white; border: none; border-radius: 4px; cursor: pointer;">🔍 OCR実行</button>
-                                <button onclick="clearSelections()" style="padding: 0.75rem; background: #f59e0b; color: white; border: none; border-radius: 4px; cursor: pointer;">🗑️ 選択クリア</button>
-                                <button onclick="hideImagePreview()" style="padding: 0.75rem; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer;">閉じる</button>
-                                <span id="selection-count" style="margin-left: 1rem; color: #666; font-size: 0.9rem;">0個の領域を選択中</span>
+                            <div style="padding: 1rem; border-top: 1px solid #ddd;">
+                                <div style="display: flex; gap: 0.5rem; align-items: center; margin-bottom: 0.5rem;">
+                                    <button onclick="processSelectedAreas()" style="padding: 0.75rem; background: #0079bf; color: white; border: none; border-radius: 4px; cursor: pointer;">🔍 OCR実行</button>
+                                    <button onclick="clearSelections()" style="padding: 0.75rem; background: #f59e0b; color: white; border: none; border-radius: 4px; cursor: pointer;">🗑️ 選択クリア</button>
+                                    <button onclick="hideImagePreview()" style="padding: 0.75rem; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer;">閉じる</button>
+                                    <span id="selection-count" style="margin-left: 1rem; color: #666; font-size: 0.9rem;">0個の領域を選択中</span>
+                                </div>
+                                <details style="background: #f8f9fa; padding: 0.5rem; border-radius: 4px;">
+                                    <summary style="cursor: pointer; font-size: 0.85rem; color: #666;">🎯 OCR精度向上設定</summary>
+                                    <div style="margin-top: 0.5rem; display: flex; flex-direction: column; gap: 0.5rem;">
+                                        <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem;">
+                                            <input type="checkbox" id="ocr-enhance-contrast" checked> コントラスト強化
+                                        </label>
+                                        <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem;">
+                                            <input type="checkbox" id="ocr-upscale" checked> 2倍拡大処理
+                                        </label>
+                                        <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem;">
+                                            <input type="checkbox" id="ocr-denoise"> ノイズ除去
+                                        </label>
+                                        <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem;">
+                                            <input type="checkbox" id="ocr-cleanup-symbols" checked> 記号クリーンアップ（○●→数字）
+                                        </label>
+                                    </div>
+                                </details>
                             </div>
                         </div>
                         
@@ -3618,24 +3637,94 @@
             }
         }
         
+        // 画像前処理を適用
+        async function preprocessImage(canvas) {
+            const ctx = canvas.getContext('2d');
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const data = imageData.data;
+            
+            // コントラスト強化
+            if (document.getElementById('ocr-enhance-contrast').checked) {
+                for (let i = 0; i < data.length; i += 4) {
+                    // グレースケール化
+                    const gray = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
+                    // コントラスト強化（中間値を境に白黒化）
+                    const threshold = 128;
+                    const value = gray > threshold ? 255 : 0;
+                    data[i] = data[i + 1] = data[i + 2] = value;
+                }
+                ctx.putImageData(imageData, 0, 0);
+            }
+            
+            // 2倍拡大処理
+            if (document.getElementById('ocr-upscale').checked) {
+                const scaledCanvas = document.createElement('canvas');
+                const scaledCtx = scaledCanvas.getContext('2d');
+                scaledCanvas.width = canvas.width * 2;
+                scaledCanvas.height = canvas.height * 2;
+                
+                // シャープな拡大
+                scaledCtx.imageSmoothingEnabled = false;
+                scaledCtx.drawImage(canvas, 0, 0, scaledCanvas.width, scaledCanvas.height);
+                
+                return scaledCanvas;
+            }
+            
+            return canvas;
+        }
+        
+        // OCR結果のポストプロセッシング
+        function postprocessOCRText(text) {
+            let processed = text;
+            
+            // 記号クリーンアップ
+            if (document.getElementById('ocr-cleanup-symbols').checked) {
+                // ○●→数字の変換パターン
+                processed = processed
+                    .replace(/[○◯◌⚪]/g, '0') // 白丸→ 0
+                    .replace(/[●•⚫]/g, '1') // 黒丸→ 1
+                    .replace(/[０-９]/g, (match) => String.fromCharCode(match.charCodeAt(0) - 0xFEE0)) // 全角数字→半角
+                    .replace(/[OoＯｏ]/g, '0') // Oを数字の0に
+                    .replace(/[IlＩｌ]/g, '1') // I,lを数字の1に
+                    .replace(/[〇]/g, '0'); // 〇→ 0
+                
+                // 不要な記号の除去
+                processed = processed
+                    .replace(/[\u2500-\u257F]/g, '') // 罫線文字
+                    .replace(/[\u2580-\u259F]/g, ''); // ブロック要素
+            }
+            
+            return processed.trim();
+        }
+        
         async function performOCROnCanvas(canvas) {
-            return new Promise((resolve, reject) => {
-                canvas.toBlob(async (blob) => {
-                    try {
-                        const { data: { text } } = await Tesseract.recognize(
-                            blob,
-                            'jpn+eng',
-                            {
-                                tessedit_pageseg_mode: Tesseract.PSM.AUTO,
-                                tessedit_char_whitelist: '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZあ-ゖア-ヶ一-龯!@#$%^&*()_+-=[]{}|;:,.<>?/~ 　「」、。',
-                                preserve_interword_spaces: '1'
-                            }
-                        );
-                        resolve(text);
-                    } catch (error) {
-                        reject(error);
-                    }
-                });
+            return new Promise(async (resolve, reject) => {
+                try {
+                    // 前処理を適用
+                    const processedCanvas = await preprocessImage(canvas);
+                    
+                    processedCanvas.toBlob(async (blob) => {
+                        try {
+                            const { data: { text } } = await Tesseract.recognize(
+                                blob,
+                                'jpn+eng',
+                                {
+                                    tessedit_pageseg_mode: Tesseract.PSM.AUTO,
+                                    tessedit_char_whitelist: '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZあ-ゖア-ヶ一-龯!@#$%^&*()_+-=[]{}|;:,.<>?/~ 　「」、。',
+                                    preserve_interword_spaces: '1'
+                                }
+                            );
+                            
+                            // ポストプロセッシングを適用
+                            const processedText = postprocessOCRText(text);
+                            resolve(processedText);
+                        } catch (error) {
+                            reject(error);
+                        }
+                    });
+                } catch (error) {
+                    reject(error);
+                }
             });
         }
         
