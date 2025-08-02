@@ -1044,6 +1044,29 @@
                             </div>
                         </div>
                         
+                        <!-- 画像プレビューと領域選択 -->
+                        <div id="image-preview-container" style="display: none; margin-top: 1rem; border: 1px solid #ddd; border-radius: 4px; background: #f8f9fa;">
+                            <div style="padding: 1rem; border-bottom: 1px solid #ddd; background: #e8f5e8;">
+                                <h5 style="margin: 0; color: #172b4d;">🖼️ 画像プレビュー - 領域を選択してOCR</h5>
+                                <div style="font-size: 0.85rem; color: #666; margin-top: 0.5rem;">
+                                    マウスでドラッグして選択領域を作成し、「OCR実行」でテキスト化
+                                </div>
+                            </div>
+                            <div style="padding: 1rem; max-height: 600px; overflow: auto; position: relative;">
+                                <div id="image-canvas-container" style="position: relative; display: inline-block; border: 1px solid #ccc;">
+                                    <canvas id="image-canvas" style="max-width: 100%; height: auto; cursor: crosshair;"></canvas>
+                                    <!-- 選択領域を表示するオーバーレイ -->
+                                    <div id="selection-overlay" style="position: absolute; top: 0; left: 0; pointer-events: none;"></div>
+                                </div>
+                            </div>
+                            <div style="padding: 1rem; border-top: 1px solid #ddd; display: flex; gap: 0.5rem; align-items: center;">
+                                <button onclick="processSelectedAreas()" style="padding: 0.75rem; background: #0079bf; color: white; border: none; border-radius: 4px; cursor: pointer;">🔍 OCR実行</button>
+                                <button onclick="clearSelections()" style="padding: 0.75rem; background: #f59e0b; color: white; border: none; border-radius: 4px; cursor: pointer;">🗑️ 選択クリア</button>
+                                <button onclick="hideImagePreview()" style="padding: 0.75rem; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer;">閉じる</button>
+                                <span id="selection-count" style="margin-left: 1rem; color: #666; font-size: 0.9rem;">0個の領域を選択中</span>
+                            </div>
+                        </div>
+                        
                         <!-- プレビューエリア - 拡大版 -->
                         <div id="import-preview" style="display: none; border: 1px solid #ddd; border-radius: 4px; background: #f8f9fa;">
                             <div style="padding: 1rem; border-bottom: 1px solid #ddd; background: #e3f2fd;">
@@ -3163,9 +3186,10 @@
             document.getElementById('import-text').value = '';
             document.getElementById('ocr-file-input').value = ''; // OCRファイルもクリア
             hidePreview(); // プレビューも同時にクリア
+            hideImagePreview(); // 画像プレビューもクリア
         }
         
-        // OCR機能
+        // 画像選択時の処理（領域選択モード）
         async function handleOCRFile(input) {
             const file = input.files[0];
             if (!file) return;
@@ -3177,25 +3201,11 @@
             }
             
             try {
-                showOCRProgress();
-                const text = await performOCR(file);
-                hideOCRProgress();
-                
-                if (text.trim()) {
-                    // 既存のテキストに追加
-                    const currentText = document.getElementById('import-text').value;
-                    const separator = currentText ? '\n\n' : '';
-                    document.getElementById('import-text').value = currentText + separator + '--- OCRから認識 ---\n' + text;
-                    
-                    // 成功メッセージ
-                    alert(`✅ OCR完了！\n認識されたテキストをインポート欄に追加しました。\n\n認識文字数: ${text.length}文字`);
-                } else {
-                    alert('テキストを認識できませんでした。\n画像が不鮮明であるか、文字が含まれていない可能性があります。');
-                }
+                // 画像をプレビュー表示
+                await displayImagePreview(file);
             } catch (error) {
-                hideOCRProgress();
-                console.error('OCR Error:', error);
-                alert('OCR処理でエラーが発生しました。\n画像ファイルを確認してください。');
+                console.error('Image Preview Error:', error);
+                alert('画像の読み込みでエラーが発生しました。');
             }
             
             // ファイル選択をリセット
@@ -3281,6 +3291,259 @@
                     alert('全データを削除しました');
                 }
             }
+        }
+        
+        // 画像プレビューと領域選択機能
+        let currentImage = null;
+        let selectedAreas = [];
+        let isSelecting = false;
+        let startX, startY, endX, endY;
+        let imageScale = 1;
+        
+        async function displayImagePreview(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const img = new Image();
+                    img.onload = function() {
+                        currentImage = img;
+                        
+                        const canvas = document.getElementById('image-canvas');
+                        const ctx = canvas.getContext('2d');
+                        
+                        // キャンバスサイズを調整（最大800px幅）
+                        const maxWidth = 800;
+                        let { width, height } = img;
+                        
+                        if (width > maxWidth) {
+                            imageScale = maxWidth / width;
+                            width = maxWidth;
+                            height = height * imageScale;
+                        } else {
+                            imageScale = 1;
+                        }
+                        
+                        canvas.width = width;
+                        canvas.height = height;
+                        ctx.drawImage(img, 0, 0, width, height);
+                        
+                        // 選択領域をリセット
+                        selectedAreas = [];
+                        clearSelectionDisplay();
+                        
+                        // イベントリスナーを設定
+                        setupCanvasEvents(canvas);
+                        
+                        // プレビューを表示
+                        document.getElementById('image-preview-container').style.display = 'block';
+                        resolve();
+                    };
+                    img.onerror = reject;
+                    img.src = e.target.result;
+                };
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
+        
+        function setupCanvasEvents(canvas) {
+            // マウスイベントをリセット
+            const newCanvas = canvas.cloneNode(true);
+            canvas.parentNode.replaceChild(newCanvas, canvas);
+            
+            newCanvas.addEventListener('mousedown', function(e) {
+                const rect = newCanvas.getBoundingClientRect();
+                startX = (e.clientX - rect.left);
+                startY = (e.clientY - rect.top);
+                isSelecting = true;
+            });
+            
+            newCanvas.addEventListener('mousemove', function(e) {
+                if (!isSelecting) return;
+                
+                const rect = newCanvas.getBoundingClientRect();
+                endX = (e.clientX - rect.left);
+                endY = (e.clientY - rect.top);
+                
+                // 選択範囲を表示
+                drawSelection(newCanvas, startX, startY, endX, endY);
+            });
+            
+            newCanvas.addEventListener('mouseup', function(e) {
+                if (!isSelecting) return;
+                
+                const rect = newCanvas.getBoundingClientRect();
+                endX = (e.clientX - rect.left);
+                endY = (e.clientY - rect.top);
+                
+                // 選択領域を保存（最小10x10ピクセル）
+                const width = Math.abs(endX - startX);
+                const height = Math.abs(endY - startY);
+                
+                if (width > 10 && height > 10) {
+                    const area = {
+                        x: Math.min(startX, endX),
+                        y: Math.min(startY, endY),
+                        width: width,
+                        height: height,
+                        id: Date.now()
+                    };
+                    selectedAreas.push(area);
+                    updateSelectionDisplay();
+                }
+                
+                isSelecting = false;
+                redrawCanvas(newCanvas);
+            });
+        }
+        
+        function drawSelection(canvas, x1, y1, x2, y2) {
+            const ctx = canvas.getContext('2d');
+            
+            // キャンバスを再描画
+            redrawCanvas(canvas);
+            
+            // 現在の選択範囲を描画
+            ctx.strokeStyle = '#007bff';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([5, 5]);
+            ctx.strokeRect(Math.min(x1, x2), Math.min(y1, y2), Math.abs(x2 - x1), Math.abs(y2 - y1));
+            
+            // 半透明の背景
+            ctx.fillStyle = 'rgba(0, 123, 255, 0.1)';
+            ctx.fillRect(Math.min(x1, x2), Math.min(y1, y2), Math.abs(x2 - x1), Math.abs(y2 - y1));
+        }
+        
+        function redrawCanvas(canvas) {
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // 元画像を再描画
+            if (currentImage) {
+                ctx.drawImage(currentImage, 0, 0, canvas.width, canvas.height);
+            }
+            
+            // 保存された選択領域を描画
+            ctx.setLineDash([]);
+            selectedAreas.forEach((area, index) => {
+                ctx.strokeStyle = '#28a745';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(area.x, area.y, area.width, area.height);
+                
+                ctx.fillStyle = 'rgba(40, 167, 69, 0.1)';
+                ctx.fillRect(area.x, area.y, area.width, area.height);
+                
+                // 番号を表示
+                ctx.fillStyle = '#28a745';
+                ctx.font = '14px Arial';
+                ctx.fillText(`${index + 1}`, area.x + 5, area.y + 18);
+            });
+        }
+        
+        function updateSelectionDisplay() {
+            document.getElementById('selection-count').textContent = `${selectedAreas.length}個の領域を選択中`;
+        }
+        
+        function clearSelections() {
+            selectedAreas = [];
+            updateSelectionDisplay();
+            const canvas = document.getElementById('image-canvas');
+            redrawCanvas(canvas);
+        }
+        
+        function clearSelectionDisplay() {
+            document.getElementById('selection-overlay').innerHTML = '';
+            updateSelectionDisplay();
+        }
+        
+        function hideImagePreview() {
+            document.getElementById('image-preview-container').style.display = 'none';
+            selectedAreas = [];
+            currentImage = null;
+        }
+        
+        async function processSelectedAreas() {
+            if (selectedAreas.length === 0) {
+                alert('選択領域がありません。マウスでドラッグして領域を選択してください。');
+                return;
+            }
+            
+            showOCRProgress();
+            let allText = '';
+            
+            try {
+                for (let i = 0; i < selectedAreas.length; i++) {
+                    const area = selectedAreas[i];
+                    updateOCRProgress(10 + (i / selectedAreas.length) * 80, `🔍 領域 ${i + 1}/${selectedAreas.length} を処理中...`);
+                    
+                    // 選択領域を切り抜き
+                    const croppedCanvas = document.createElement('canvas');
+                    const croppedCtx = croppedCanvas.getContext('2d');
+                    
+                    // 実際の画像サイズに合わせて座標を調整
+                    const realX = area.x / imageScale;
+                    const realY = area.y / imageScale;
+                    const realWidth = area.width / imageScale;
+                    const realHeight = area.height / imageScale;
+                    
+                    croppedCanvas.width = realWidth;
+                    croppedCanvas.height = realHeight;
+                    
+                    croppedCtx.drawImage(
+                        currentImage,
+                        realX, realY, realWidth, realHeight,
+                        0, 0, realWidth, realHeight
+                    );
+                    
+                    // OCR処理
+                    const text = await performOCROnCanvas(croppedCanvas);
+                    if (text.trim()) {
+                        allText += `--- 領域 ${i + 1} ---\n${text.trim()}\n\n`;
+                    }
+                }
+                
+                hideOCRProgress();
+                
+                if (allText.trim()) {
+                    // 既存のテキストに追加
+                    const currentText = document.getElementById('import-text').value;
+                    const separator = currentText ? '\n\n' : '';
+                    document.getElementById('import-text').value = currentText + separator + allText;
+                    
+                    // 成功メッセージ
+                    alert(`✅ OCR完了！\n${selectedAreas.length}個の領域からテキストを認識しました。`);
+                    
+                    // 画像プレビューを閉じる
+                    hideImagePreview();
+                } else {
+                    alert('選択した領域からテキストを認識できませんでした。');
+                }
+            } catch (error) {
+                hideOCRProgress();
+                console.error('Area OCR Error:', error);
+                alert('OCR処理でエラーが発生しました。');
+            }
+        }
+        
+        async function performOCROnCanvas(canvas) {
+            return new Promise((resolve, reject) => {
+                canvas.toBlob(async (blob) => {
+                    try {
+                        const { data: { text } } = await Tesseract.recognize(
+                            blob,
+                            'jpn+eng',
+                            {
+                                tessedit_pageseg_mode: Tesseract.PSM.AUTO,
+                                tessedit_char_whitelist: '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZあ-ゖア-ヶ一-龯!@#$%^&*()_+-=[]{}|;:,.<>?/~ 　「」、。',
+                                preserve_interword_spaces: '1'
+                            }
+                        );
+                        resolve(text);
+                    } catch (error) {
+                        reject(error);
+                    }
+                });
+            });
         }
         
         // 初期化実行
