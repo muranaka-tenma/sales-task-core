@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>🎯 営業タスク管理 - Kanbanボード</title>
+    <script src="https://unpkg.com/tesseract.js@4/dist/tesseract.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -1007,7 +1008,7 @@
                 <div class="setting-section" style="margin-top: 2rem;">
                     <h4 style="margin-bottom: 1rem; color: #172b4d;">📝 柔軟テキストインポート</h4>
                     <div style="display: flex; flex-direction: column; gap: 1rem;">
-                        <textarea id="import-text" placeholder="任意のテキストを貼り付けてください&#10;例:&#10;メール件名、TODO、リスト、何でもOK！&#10;プレビューで確認してからインポートできます" style="width: 100%; height: 120px; padding: 0.75rem; border: 1px solid #ddd; border-radius: 4px; font-family: monospace; font-size: 0.9rem; resize: vertical;"></textarea>
+                        <textarea id="import-text" placeholder="シンプル形式でタスクを入力してください&#10;例:&#10;A社への提案書作成 @田中部長 2024-08-05&#10;  詳細確認事項&#10;  見積もり調整&#10;B社打ち合わせ!!! @佐藤課長&#10;  資料準備済み&#10;    会議室予約&#10;C社フォローアップ" style="width: 100%; height: 120px; padding: 0.75rem; border: 1px solid #ddd; border-radius: 4px; font-family: monospace; font-size: 0.9rem; resize: vertical;"></textarea>
                         
                         <!-- インポート設定 -->
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; padding: 1rem; background: #f8f9fa; border-radius: 4px;">
@@ -1040,6 +1041,16 @@
                         <div style="display: flex; gap: 0.5rem;">
                             <button onclick="previewImport()" style="flex: 1; padding: 0.75rem; background: #0079bf; color: white; border: none; border-radius: 4px; cursor: pointer;">👁️ プレビュー</button>
                             <button onclick="clearImportText()" style="padding: 0.75rem; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer;">🗑️ クリア</button>
+                            <label for="ocr-file-input" style="padding: 0.75rem; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; display: inline-block;">📸 OCR</label>
+                            <input type="file" id="ocr-file-input" accept="image/*" style="display: none;" onchange="handleOCRFile(this)">
+                        </div>
+                        
+                        <!-- OCR処理状況 -->
+                        <div id="ocr-status" style="display: none; margin-top: 1rem; padding: 0.75rem; border-radius: 4px; background: #e3f2fd; border: 1px solid #90caf9;">
+                            <div id="ocr-progress-text">📸 画像を解析中...</div>
+                            <div style="width: 100%; background: #f0f0f0; border-radius: 4px; height: 8px; margin-top: 0.5rem;">
+                                <div id="ocr-progress-bar" style="width: 0%; height: 100%; background: #2196f3; border-radius: 4px; transition: width 0.3s;"></div>
+                            </div>
                         </div>
                         
                         <!-- プレビューエリア -->
@@ -1055,8 +1066,10 @@
                         </div>
                         
                         <div style="font-size: 0.8rem; color: #6c757d; line-height: 1.4;">
-                            <strong>💡 使い方:</strong> 任意のテキストを貼り付け → プレビューで確認 → インポート実行<br>
-                            自動認識: @担当者、日付、!!!高優先度、行の先頭記号など
+                            <strong>📝 シンプル形式:</strong><br>
+                            • <strong>・</strong>で主タスク開始<br>
+                            • <strong>行頭スペース</strong>でサブタスク（コメントに自動追加）<br>
+                            • <strong>@担当者</strong>、<strong>日付</strong>、<strong>!!!</strong>高優先度を自動認識
                         </div>
                     </div>
                 </div>
@@ -2598,28 +2611,16 @@
             const defaultPriority = document.getElementById('default-priority').value;
             const defaultColumn = document.getElementById('default-column').value;
             
-            // テキストを行に分割してタスクを解析
+            // テキストを行に分割
             const lines = importText.split('\n');
             previewTasks = [];
-            let parentStack = []; // 親タスクのスタック
             
+            // 各行を個別のアイテムとして処理
             lines.forEach((line, index) => {
-                if (!line.trim()) return;
+                if (!line.trim()) return; // 空行はスキップ
                 
-                // インデントレベルを検出
-                const indentMatch = line.match(/^(\s*[┗└├│\s]*)/);
-                const indentLevel = indentMatch ? Math.floor(indentMatch[1].length / 2) : 0;
-                
-                let taskText = line.trim();
-                
-                // ツリー記号を除去
-                taskText = taskText.replace(/^[┗└├│\s]*/, '').trim();
-                
-                // 空行やあまりに短い行はスキップ
-                if (!taskText || taskText.length < 2) return;
-                
-                // 先頭記号を除去
-                taskText = taskText.replace(/^[-•*\d+\.)]\s*/, '').trim();
+                const trimmedLine = line.trim();
+                let taskText = trimmedLine;
                 
                 // 担当者を抽出
                 const assigneeMatch = taskText.match(/@([^\s@]+)/g);
@@ -2629,7 +2630,7 @@
                     taskText = taskText.replace(/@[^\s@]+/g, '').trim();
                 }
                 
-                // 日付を抽出（複数の形式に対応）
+                // 日付を抽出
                 const dateMatches = taskText.match(/(\d{4}[-\/]\d{1,2}[-\/]\d{1,2})|(\d{1,2}[-\/]\d{1,2}[-\/]\d{4})|(\d{1,2}月\d{1,2}日)/g);
                 let deadline = defaultDeadline;
                 if (dateMatches && dateMatches.length > 0) {
@@ -2661,31 +2662,9 @@
                     taskText = taskText.replace(/低|later|LATER|後で/g, '').trim();
                 }
                 
-                // カテゴリやタグを抽出
-                const tags = taskText.match(/#[^\s#]+/g) || [];
-                if (tags.length > 0) {
-                    taskText = taskText.replace(/#[^\s#]+/g, '').trim();
-                }
-                
-                // プロジェクト名を自動検出（大文字のキーワード）
-                const projectMatch = taskText.match(/^([A-Z]{2,}|[ァ-ヴー]+|フリービット|DT|BL)/);
-                const project = projectMatch ? projectMatch[1] : '';
-                
                 taskText = taskText.replace(/\s+/g, ' ').trim();
                 
                 if (taskText && taskText.length > 1) {
-                    // 親タスクを決定
-                    let parentId = null;
-                    if (indentLevel > 0 && parentStack.length > 0) {
-                        // 適切な親を見つける
-                        while (parentStack.length > indentLevel) {
-                            parentStack.pop();
-                        }
-                        if (parentStack.length > 0) {
-                            parentId = parentStack[parentStack.length - 1];
-                        }
-                    }
-                    
                     const task = {
                         id: `preview_${index}`,
                         title: taskText,
@@ -2693,27 +2672,120 @@
                         deadline: deadline,
                         priority: priority,
                         columnId: defaultColumn,
-                        tags: tags,
                         originalLine: line,
-                        indentLevel: indentLevel,
-                        parentId: parentId,
-                        project: project
+                        lineIndex: index,
+                        isMainTask: true, // デフォルトで主タスク
+                        parentIndex: null, // 後で設定される
+                        isSkip: false // スキップするかどうか
                     };
                     
                     previewTasks.push(task);
-                    
-                    // 現在のタスクを親スタックに追加
-                    if (parentStack.length <= indentLevel) {
-                        parentStack.push(task.id);
-                    } else {
-                        parentStack[indentLevel] = task.id;
-                        parentStack = parentStack.slice(0, indentLevel + 1);
-                    }
                 }
             });
             
-            // プレビューを表示
-            displayPreview();
+            // 新しいプレビュー表示
+            displayLineByLinePreview();
+        }
+        
+        function displayLineByLinePreview() {
+            const previewDiv = document.getElementById('import-preview');
+            const contentDiv = document.getElementById('preview-content');
+            
+            if (previewTasks.length === 0) {
+                alert('有効なタスクが見つかりませんでした。テキストを確認してください。');
+                return;
+            }
+            
+            let content = `
+                <div style="margin-bottom: 1rem; padding: 0.75rem; background: #e8f5e8; border-radius: 4px; color: #2f7d2f;">
+                    <strong>📝 ${previewTasks.length}行のテキストが見つかりました</strong>
+                    <div style="font-size: 0.9rem; margin-top: 0.5rem;">各行の種類と進捗ステータスを選択してください：</div>
+                </div>
+                
+                <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+            `;
+            
+            previewTasks.forEach((task, index) => {
+                const mainTaskOptions = previewTasks.map((t, i) => 
+                    i < index ? `<option value="${i}">📋 ${t.title.substring(0, 30)}${t.title.length > 30 ? '...' : ''}</option>` : ''
+                ).join('');
+                
+                content += `
+                    <div style="border: 1px solid #ddd; border-radius: 4px; padding: 0.75rem; background: white;">
+                        <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 0.5rem; align-items: center;">
+                            <div style="font-family: monospace; background: #f8f9fa; padding: 0.5rem; border-radius: 4px; font-size: 0.9rem;">
+                                "${task.originalLine}"
+                            </div>
+                            <div>
+                                <select onchange="updateTaskType(${index}, this.value)" style="width: 100%; padding: 0.4rem; border: 1px solid #ddd; border-radius: 4px;">
+                                    <option value="main" ${task.isMainTask ? 'selected' : ''}>📋 メインタスク</option>
+                                    <option value="comment" ${!task.isMainTask ? 'selected' : ''}>💬 コメント</option>
+                                    <option value="skip">⏭️ スキップ</option>
+                                </select>
+                            </div>
+                            <div>
+                                <select onchange="updateTaskParent(${index}, this.value)" style="width: 100%; padding: 0.4rem; border: 1px solid #ddd; border-radius: 4px;" ${task.isMainTask ? 'disabled' : ''} id="parent-select-${index}">
+                                    <option value="">－</option>
+                                    ${mainTaskOptions}
+                                </select>
+                            </div>
+                            <div>
+                                <select onchange="updateTaskColumn(${index}, this.value)" style="width: 100%; padding: 0.4rem; border: 1px solid #ddd; border-radius: 4px;" ${!task.isMainTask ? 'disabled' : ''} id="column-select-${index}">
+                                    ${columns.map(c => `<option value="${c.id}" ${task.columnId === c.id ? 'selected' : ''}>${c.title}</option>`).join('')}
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            content += `
+                </div>
+                <div style="margin-top: 1rem; padding: 0.75rem; background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 4px; font-size: 0.9rem;">
+                    <strong>💡 使い方：</strong><br>
+                    • <strong>メインタスク</strong>：独立したタスクカードとして作成<br>
+                    • <strong>コメント</strong>：上記のメインタスクにコメントとして追加<br>
+                    • <strong>スキップ</strong>：インポート時に無視
+                </div>
+            `;
+            
+            contentDiv.innerHTML = content;
+            previewDiv.style.display = 'block';
+        }
+        
+        function updateTaskType(index, type) {
+            if (previewTasks[index]) {
+                previewTasks[index].isMainTask = (type === 'main');
+                previewTasks[index].isSkip = (type === 'skip');
+                
+                // 親選択とカラム選択の有効/無効を切り替え
+                const parentSelect = document.getElementById(`parent-select-${index}`);
+                const columnSelect = document.getElementById(`column-select-${index}`);
+                
+                if (type === 'main') {
+                    parentSelect.disabled = true;
+                    parentSelect.value = '';
+                    columnSelect.disabled = false;
+                } else if (type === 'comment') {
+                    parentSelect.disabled = false;
+                    columnSelect.disabled = true;
+                } else { // skip
+                    parentSelect.disabled = true;
+                    columnSelect.disabled = true;
+                }
+            }
+        }
+        
+        function updateTaskParent(index, parentIndex) {
+            if (previewTasks[index]) {
+                previewTasks[index].parentIndex = parentIndex ? parseInt(parentIndex) : null;
+            }
+        }
+        
+        function updateTaskColumn(index, columnId) {
+            if (previewTasks[index]) {
+                previewTasks[index].columnId = columnId;
+            }
         }
         
         function displayPreview() {
@@ -2779,7 +2851,20 @@
                                                 </select>
                                             </div>
                                         </div>
-                                        <div style="display: flex; gap: 0.5rem; align-items: center;">
+                                        ${task.subTasks && task.subTasks.length > 0 ? `
+                                            <div style="margin-top: 0.75rem; padding: 0.5rem; background: #f0f8ff; border: 1px solid #bee5eb; border-radius: 4px;">
+                                                <div style="font-size: 0.8rem; font-weight: bold; color: #0c5460; margin-bottom: 0.5rem;">📝 サブタスク/コメント (${task.subTasks.length}件)</div>
+                                                ${task.subTasks.map((subTask, subIndex) => `
+                                                    <div style="font-size: 0.85rem; color: #495057; margin-bottom: 0.25rem; padding-left: 1rem; border-left: 2px solid #17a2b8;">
+                                                        • ${subTask}
+                                                    </div>
+                                                `).join('')}
+                                                <div style="font-size: 0.75rem; color: #6c757d; margin-top: 0.5rem;">
+                                                    ※ これらはタスクのコメントとして自動追加されます
+                                                </div>
+                                            </div>
+                                        ` : ''}
+                                        <div style="display: flex; gap: 0.5rem; align-items: center; margin-top: 0.75rem;">
                                             <select onchange="updatePreviewTask(${taskIndex}, 'columnId', this.value)" style="padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
                                                 ${columns.map(c => `<option value="${c.id}" ${task.columnId === c.id ? 'selected' : ''}>${c.title}</option>`).join('')}
                                             </select>
@@ -2817,12 +2902,12 @@
             }
             
             let importedCount = 0;
-            const taskIdMap = {}; // プレビューIDと実際のIDのマッピング
+            const taskIdMap = {}; // インデックスと実際のタスクIDのマッピング
             
-            // まず親タスクから作成
-            const sortedTasks = [...previewTasks].sort((a, b) => a.indentLevel - b.indentLevel);
-            
-            sortedTasks.forEach((previewTask, index) => {
+            // まずメインタスクを作成
+            previewTasks.forEach((previewTask, index) => {
+                if (previewTask.isSkip || !previewTask.isMainTask) return;
+                
                 // 担当者をリストに追加（存在しない場合）
                 if (previewTask.assignee !== '未設定' && !assignees.includes(previewTask.assignee)) {
                     assignees.push(previewTask.assignee);
@@ -2830,27 +2915,7 @@
                 }
                 
                 const taskId = Date.now() + index;
-                taskIdMap[previewTask.id] = taskId;
-                
-                // 親タスクIDを解決
-                let parentTaskId = null;
-                if (previewTask.parentId && taskIdMap[previewTask.parentId]) {
-                    parentTaskId = taskIdMap[previewTask.parentId];
-                }
-                
-                let memoContent = `インポート: ${new Date().toLocaleDateString()}`;
-                if (previewTask.tags.length > 0) {
-                    memoContent += ` / タグ: ${previewTask.tags.join(' ')}`;
-                }
-                if (previewTask.project) {
-                    memoContent += ` / プロジェクト: ${previewTask.project}`;
-                }
-                if (parentTaskId) {
-                    const parentTask = tasks.find(t => t.id === parentTaskId);
-                    if (parentTask) {
-                        memoContent += ` / 親タスク: ${parentTask.title}`;
-                    }
-                }
+                taskIdMap[index] = taskId;
                 
                 const newTask = {
                     id: taskId,
@@ -2859,19 +2924,36 @@
                     priority: previewTask.priority,
                     assignees: [previewTask.assignee],
                     assignee: previewTask.assignee,
-                    memo: memoContent,
+                    memo: `インポート: ${new Date().toLocaleDateString()}`,
                     columnId: previewTask.columnId,
                     completed: false,
                     createdAt: new Date().toISOString(),
                     comments: [],
-                    parentTaskId: parentTaskId,
-                    project: previewTask.project || null,
-                    indentLevel: previewTask.indentLevel,
                     originalLine: previewTask.originalLine
                 };
                 
                 tasks.push(newTask);
                 importedCount++;
+            });
+            
+            // 次にコメントを追加
+            previewTasks.forEach((previewTask, index) => {
+                if (previewTask.isSkip || previewTask.isMainTask) return;
+                if (previewTask.parentIndex === null) return;
+                
+                const parentTaskId = taskIdMap[previewTask.parentIndex];
+                if (!parentTaskId) return;
+                
+                const parentTask = tasks.find(t => t.id === parentTaskId);
+                if (parentTask) {
+                    parentTask.comments.push({
+                        id: Date.now() + index,
+                        author: previewTask.assignee,
+                        text: `📝 ${previewTask.title}`,
+                        timestamp: new Date().toISOString(),
+                        isImportedComment: true
+                    });
+                }
             });
             
             if (importedCount > 0) {
@@ -2880,10 +2962,10 @@
                 document.getElementById('import-text').value = '';
                 hidePreview();
                 
-                const projects = [...new Set(previewTasks.map(t => t.project).filter(p => p))];
+                const commentCount = previewTasks.filter(t => !t.isMainTask && !t.isSkip).length;
                 let message = `✅ ${importedCount}個のタスクをインポートしました！`;
-                if (projects.length > 0) {
-                    message += `\n📁 プロジェクト: ${projects.join(', ')}`;
+                if (commentCount > 0) {
+                    message += `\n💬 ${commentCount}個のコメントも追加されました。`;
                 }
                 alert(message);
             }
@@ -2896,6 +2978,90 @@
         
         function clearImportText() {
             document.getElementById('import-text').value = '';
+        }
+        
+        // OCR機能
+        async function handleOCRFile(input) {
+            const file = input.files[0];
+            if (!file) return;
+            
+            // ファイルサイズチェック (10MB制限)
+            if (file.size > 10 * 1024 * 1024) {
+                alert('ファイルサイズが大きすぎます (最大10MB)');
+                return;
+            }
+            
+            try {
+                showOCRProgress();
+                const text = await performOCR(file);
+                hideOCRProgress();
+                
+                if (text.trim()) {
+                    // 既存のテキストに追加
+                    const currentText = document.getElementById('import-text').value;
+                    const separator = currentText ? '\n\n' : '';
+                    document.getElementById('import-text').value = currentText + separator + '--- OCRから認識 ---\n' + text;
+                    
+                    // 成功メッセージ
+                    alert(`✅ OCR完了！\n認識されたテキストをインポート欄に追加しました。\n\n認識文字数: ${text.length}文字`);
+                } else {
+                    alert('テキストを認識できませんでした。\n画像が不鮮明であるか、文字が含まれていない可能性があります。');
+                }
+            } catch (error) {
+                hideOCRProgress();
+                console.error('OCR Error:', error);
+                alert('OCR処理でエラーが発生しました。\n画像ファイルを確認してください。');
+            }
+            
+            // ファイル選択をリセット
+            input.value = '';
+        }
+        
+        async function performOCR(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = async function(e) {
+                    try {
+                        updateOCRProgress(10, '📸 画像を読み込み中...');
+                        
+                        const { data: { text } } = await Tesseract.recognize(
+                            e.target.result,
+                            'jpn+eng', // 日本語と英語を認識
+                            {
+                                logger: m => {
+                                    if (m.status === 'recognizing text') {
+                                        const progress = Math.round(m.progress * 90) + 10; // 10-100%の範囲
+                                        updateOCRProgress(progress, `🔍 テキスト認識中... ${Math.round(m.progress * 100)}%`);
+                                    }
+                                }
+                            }
+                        );
+                        
+                        updateOCRProgress(100, '✅ 認識完了！');
+                        resolve(text);
+                    } catch (error) {
+                        reject(error);
+                    }
+                };
+                reader.onerror = () => reject(new Error('ファイル読み込みエラー'));
+                reader.readAsDataURL(file);
+            });
+        }
+        
+        function showOCRProgress() {
+            document.getElementById('ocr-status').style.display = 'block';
+            updateOCRProgress(0, '📸 OCR処理を開始中...');
+        }
+        
+        function updateOCRProgress(percentage, message) {
+            document.getElementById('ocr-progress-bar').style.width = percentage + '%';
+            document.getElementById('ocr-progress-text').textContent = message;
+        }
+        
+        function hideOCRProgress() {
+            setTimeout(() => {
+                document.getElementById('ocr-status').style.display = 'none';
+            }, 2000);
         }
         
         function clearAllData() {
