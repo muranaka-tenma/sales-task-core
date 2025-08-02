@@ -3136,6 +3136,7 @@
                 
                 // プレビューをリセットしてタスク画面に切り替え
                 document.getElementById('import-text').value = '';
+                document.getElementById('ocr-file-input').value = ''; // OCRファイル入力もリセット
                 hidePreview();
                 closeSettingsModal();
                 
@@ -3150,6 +3151,7 @@
         
         function hidePreview() {
             document.getElementById('import-preview').style.display = 'none';
+            document.getElementById('preview-content').innerHTML = '';
             previewTasks = [];
         }
         
