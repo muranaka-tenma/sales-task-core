@@ -1005,9 +1005,26 @@
                 </div>
                 
                 <div class="setting-section" style="margin-top: 2rem;">
+                    <h4 style="margin-bottom: 1rem; color: #172b4d;">📝 テキストインポート</h4>
+                    <div style="display: flex; flex-direction: column; gap: 1rem;">
+                        <textarea id="import-text" placeholder="TODOテキストを貼り付けてください&#10;例:&#10;- A社への提案書作成 @田中部長 2024-08-05&#10;- B社との打ち合わせ @佐藤課長 2024-08-06&#10;- 契約書レビュー @山田主任 2024-08-07" style="width: 100%; height: 150px; padding: 0.75rem; border: 1px solid #ddd; border-radius: 4px; font-family: monospace; font-size: 0.9rem; resize: vertical;"></textarea>
+                        <div style="display: flex; gap: 0.5rem;">
+                            <button onclick="importTasks()" style="flex: 1; padding: 0.75rem; background: #38a169; color: white; border: none; border-radius: 4px; cursor: pointer;">📥 インポート</button>
+                            <button onclick="clearImportText()" style="padding: 0.75rem; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer;">🗑️ クリア</button>
+                        </div>
+                        <div style="font-size: 0.8rem; color: #6c757d; line-height: 1.4;">
+                            <strong>インポート形式:</strong><br>
+                            • 各行1つのタスク<br>
+                            • @担当者名 で担当者指定<br>
+                            • 日付（YYYY-MM-DD）で期限指定<br>
+                            • - または • で始まる行のみ処理
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="setting-section" style="margin-top: 2rem;">
                     <h4 style="margin-bottom: 1rem; color: #172b4d;">🔄 データ管理</h4>
                     <div style="display: flex; flex-direction: column; gap: 1rem;">
-                        <button onclick="exportData()" style="padding: 0.75rem; background: #38a169; color: white; border: none; border-radius: 4px; cursor: pointer;">📥 データをエクスポート</button>
                         <button onclick="clearAllData()" style="padding: 0.75rem; background: #e53e3e; color: white; border: none; border-radius: 4px; cursor: pointer;">🗑️ 全データを削除</button>
                     </div>
                 </div>
@@ -1749,13 +1766,13 @@
                 const columnEl = document.createElement('div');
                 columnEl.className = 'column';
                 columnEl.innerHTML = `
-                    <div class="column-header">
+                    <div class="column-header" style="background: ${column.color}; color: white;">
                         <div class="column-title" ondblclick="editColumnNameInline('${column.id}', this)">${column.title}</div>
                         <div style="display: flex; align-items: center; gap: 0.25rem;">
                             <div class="column-count">${columnTasks.length}</div>
                             <div style="display: flex; gap: 0.25rem;">
-                                <button onclick="editColumnNameInline('${column.id}')" style="background: none; border: none; cursor: pointer; color: #5e6c84; font-size: 0.8rem; padding: 0.2rem;" title="編集">✏️</button>
-                                ${columns.length > 2 ? `<button onclick="deleteColumnInline('${column.id}')" style="background: none; border: none; cursor: pointer; color: #e53e3e; font-size: 0.8rem; padding: 0.2rem;" title="削除">🗑️</button>` : ''}
+                                <button onclick="editColumnNameInline('${column.id}')" style="background: rgba(255,255,255,0.2); border: none; cursor: pointer; color: white; font-size: 0.8rem; padding: 0.2rem; border-radius: 3px;" title="編集">✏️</button>
+                                ${columns.length > 2 ? `<button onclick="deleteColumnInline('${column.id}')" style="background: rgba(255,255,255,0.2); border: none; cursor: pointer; color: white; font-size: 0.8rem; padding: 0.2rem; border-radius: 3px;" title="削除">🗑️</button>` : ''}
                             </div>
                         </div>
                     </div>
@@ -2499,31 +2516,93 @@
             setupFileDropZone();
         });
         
-        // データ管理機能
-        function exportData() {
-            const data = {
-                tasks: tasks,
-                columns: columns,
-                assignees: assignees,
-                settings: {
-                    alertSettings: JSON.parse(localStorage.getItem('alertSettings') || '{}'),
-                    selectedTheme: localStorage.getItem('selectedTheme'),
-                    themeColors: JSON.parse(localStorage.getItem('themeColors') || '{}')
-                },
-                exportDate: new Date().toISOString()
-            };
+        // テキストインポート機能
+        function importTasks() {
+            const importText = document.getElementById('import-text').value.trim();
+            if (!importText) {
+                alert('インポートするテキストを入力してください');
+                return;
+            }
             
-            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `task-data-${new Date().toISOString().split('T')[0]}.json`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
+            const lines = importText.split('\n').filter(line => {
+                const trimmed = line.trim();
+                return trimmed && (trimmed.startsWith('-') || trimmed.startsWith('•') || trimmed.startsWith('*'));
+            });
             
-            alert('データをエクスポートしました');
+            if (lines.length === 0) {
+                alert('有効なタスク行が見つかりません。- または • で始まる行を入力してください。');
+                return;
+            }
+            
+            let importedCount = 0;
+            const today = new Date().toISOString().split('T')[0];
+            
+            lines.forEach(line => {
+                // タスク名を抽出（先頭の記号を除去）
+                let taskText = line.replace(/^[-•*]\s*/, '').trim();
+                
+                // 担当者を抽出
+                const assigneeMatch = taskText.match(/@([^\s]+)/);
+                const assignee = assigneeMatch ? assigneeMatch[1] : '未設定';
+                if (assigneeMatch) {
+                    taskText = taskText.replace(/@[^\s]+/g, '').trim();
+                }
+                
+                // 日付を抽出
+                const dateMatch = taskText.match(/(\d{4}-\d{2}-\d{2})/);
+                const deadline = dateMatch ? dateMatch[1] : today;
+                if (dateMatch) {
+                    taskText = taskText.replace(/\d{4}-\d{2}-\d{2}/g, '').trim();
+                }
+                
+                // 優先度を抽出
+                let priority = 'medium';
+                if (taskText.includes('!!!') || taskText.includes('高') || taskText.includes('急')) {
+                    priority = 'high';
+                    taskText = taskText.replace(/[!！高急]/g, '').trim();
+                } else if (taskText.includes('低') || taskText.includes('later')) {
+                    priority = 'low';
+                    taskText = taskText.replace(/[低]/g, '').trim();
+                }
+                
+                if (taskText) {
+                    // 担当者をリストに追加（存在しない場合）
+                    if (assignee !== '未設定' && !assignees.includes(assignee)) {
+                        assignees.push(assignee);
+                        localStorage.setItem('taskAssignees', JSON.stringify(assignees));
+                    }
+                    
+                    const newTask = {
+                        id: Date.now() + importedCount,
+                        title: taskText,
+                        deadline: new Date(`${deadline}T17:00`).toISOString(),
+                        priority: priority,
+                        assignees: [assignee],
+                        assignee: assignee,
+                        memo: `インポート: ${new Date().toLocaleDateString()}`,
+                        columnId: 'todo',
+                        completed: false,
+                        createdAt: new Date().toISOString(),
+                        comments: []
+                    };
+                    
+                    tasks.push(newTask);
+                    importedCount++;
+                }
+            });
+            
+            if (importedCount > 0) {
+                saveTasks();
+                render();
+                document.getElementById('import-text').value = '';
+                alert(`${importedCount}個のタスクをインポートしました`);
+            } else {
+                alert('インポートできるタスクがありませんでした');
+            }
+        }
+        
+        function clearImportText() {
+            document.getElementById('import-text').value = '';
         }
         
         function clearAllData() {
