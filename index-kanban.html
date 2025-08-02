@@ -2728,9 +2728,13 @@
                 return;
             }
             
+            const activeTaskCount = previewTasks.filter(t => !t.isSkip).length;
+            const mainTaskCount = previewTasks.filter(t => !t.isSkip && t.isMainTask).length;
+            const commentCount = previewTasks.filter(t => !t.isSkip && !t.isMainTask).length;
+            
             let content = `
                 <div style="margin-bottom: 1rem; padding: 0.75rem; background: #e8f5e8; border-radius: 4px; color: #2f7d2f;">
-                    <strong>📝 ${previewTasks.length}行のテキストが見つかりました</strong>
+                    <strong>📝 ${activeTaskCount}個のアイテム (📋 メイン: ${mainTaskCount}, 💬 コメント: ${commentCount})</strong>
                     <div style="font-size: 0.9rem; margin-top: 0.5rem;">✨ インデント行は自動でコメントに設定済み（半角スペース2個以上・全角スペース・タブ）。ドラッグ&ドロップで親子関係を変更可能：</div>
                 </div>
                 
@@ -2738,6 +2742,8 @@
             `;
             
             previewTasks.forEach((task, index) => {
+                // スキップされたタスクは表示しない
+                if (task.isSkip) return;
                 const mainTaskOptions = previewTasks.map((t, i) => 
                     i < index ? `<option value="${i}" ${task.parentIndex === i ? 'selected' : ''}>📋 ${t.title.substring(0, 30)}${t.title.length > 30 ? '...' : ''}</option>` : ''
                 ).join('');
@@ -2765,8 +2771,20 @@
                         
                         <!-- テキスト表示エリア -->
                         <div style="padding: 0.75rem; background: white;">
-                            <div style="font-family: monospace; background: #f8f9fa; padding: 0.75rem; border-radius: 4px; font-size: 0.9rem; word-break: break-all; line-height: 1.3; border-left: 3px solid ${borderColor}; max-height: 4rem; overflow: hidden; text-overflow: ellipsis;">
-                                "${task.originalLine}"
+                            <div style="display: flex; gap: 0.5rem; align-items: flex-start;">
+                                <input type="text" 
+                                       value="${task.title.replace(/"/g, '&quot;')}" 
+                                       onchange="updateTaskTitle(${index}, this.value)" 
+                                       style="flex: 1; font-family: monospace; background: #f8f9fa; padding: 0.75rem; border-radius: 4px; font-size: 0.9rem; border: 1px solid ${borderColor}; border-left: 3px solid ${borderColor};"
+                                       id="title-input-${index}">
+                                <button onclick="deletePreviewTask(${index})" 
+                                        style="background: #e53e3e; color: white; border: none; padding: 0.5rem; border-radius: 4px; cursor: pointer; font-size: 0.8rem;"
+                                        title="このタスクを削除">
+                                    🗑️
+                                </button>
+                            </div>
+                            <div style="font-size: 0.75rem; color: #666; margin-top: 0.25rem; font-style: italic;">
+                                元: "${task.originalLine}"
                             </div>
                         </div>
                         
@@ -2830,6 +2848,48 @@
             
             contentDiv.innerHTML = content;
             previewDiv.style.display = 'block';
+        }
+        
+        function updateTaskTitle(index, title) {
+            if (previewTasks[index]) {
+                previewTasks[index].title = title.trim();
+            }
+        }
+        
+        function deletePreviewTask(index) {
+            const task = previewTasks[index];
+            
+            // このタスクを親にしているコメントを確認
+            const childComments = previewTasks.filter((t, i) => 
+                i !== index && !t.isMainTask && t.parentIndex === index
+            );
+            
+            if (childComments.length > 0) {
+                if (!confirm(`⚠️ このタスクには${childComments.length}個の子コメントがあります。\n子コメントも一緒に削除しますか？`)) {
+                    return;
+                }
+                
+                // 子コメントもスキップに設定
+                childComments.forEach(child => {
+                    child.isSkip = true;
+                });
+            }
+            
+            // タスクをスキップに設定（完全削除ではなくインデックスを保持）
+            previewTasks[index].isSkip = true;
+            
+            // 他のタスクの親参照を更新
+            previewTasks.forEach((t, i) => {
+                if (t.parentIndex > index) {
+                    // 削除されたタスクより後のインデックスを調整
+                    const skipCount = previewTasks.slice(0, t.parentIndex).filter(pt => pt.isSkip).length;
+                    const targetSkipCount = previewTasks.slice(0, index).filter(pt => pt.isSkip).length;
+                    t.parentIndex = t.parentIndex - (skipCount - targetSkipCount);
+                }
+            });
+            
+            // プレビューを再表示
+            displayLineByLinePreview();
         }
         
         function updateTaskAssignee(index, assignee) {
@@ -3311,8 +3371,8 @@
                         const canvas = document.getElementById('image-canvas');
                         const ctx = canvas.getContext('2d');
                         
-                        // キャンバスサイズを調整（最大800px幅）
-                        const maxWidth = 800;
+                        // キャンバスサイズを調整（最大1200px幅）
+                        const maxWidth = 1200;
                         let { width, height } = img;
                         
                         if (width > maxWidth) {
@@ -3325,6 +3385,11 @@
                         
                         canvas.width = width;
                         canvas.height = height;
+                        
+                        // 高画質設定
+                        ctx.imageSmoothingEnabled = true;
+                        ctx.imageSmoothingQuality = 'high';
+                        
                         ctx.drawImage(img, 0, 0, width, height);
                         
                         // 選択領域をリセット
@@ -3498,7 +3563,8 @@
                     // OCR処理
                     const text = await performOCROnCanvas(croppedCanvas);
                     if (text.trim()) {
-                        allText += `--- 領域 ${i + 1} ---\n${text.trim()}\n\n`;
+                        // 領域番号を除外してテキストのみ追加
+                        allText += text.trim() + '\n';
                     }
                 }
                 
