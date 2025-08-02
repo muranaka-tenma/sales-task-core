@@ -1079,8 +1079,8 @@
                                             <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem;">
                                                 <input type="checkbox" id="ocr-grayscale"> グレースケール化
                                             </label>
-                                            <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem;">
-                                                <input type="checkbox" id="ocr-cleanup-symbols"> 記号クリーンアップ
+                                            <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem;" title="①→ 1, ○→ 0, ●→ 1 など">
+                                                <input type="checkbox" id="ocr-cleanup-symbols"> 数字記号修正
                                             </label>
                                         </div>
                                         <div style="margin-top: 0.5rem; display: flex; gap: 0.5rem;">
@@ -1088,7 +1088,7 @@
                                             <button onclick="resetOCRSettings()" style="padding: 0.5rem; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">🔄 リセット</button>
                                         </div>
                                         <div style="margin-top: 0.5rem; padding: 0.5rem; background: #d1ecf1; border-radius: 4px; font-size: 0.8rem; color: #0c5460;">
-                                            💡 ヒント: まずは全てオフで試し、精度が悪い場合のみ機能を有効にしてください
+                                            💡 ヒント: ①→ 1, ○→ 0 などの誤認識がある場合は「数字記号修正」を有効に
                                         </div>
                                     </div>
                                 </details>
@@ -3699,13 +3699,37 @@
             
             // 記号クリーンアップ（控えめ）
             if (document.getElementById('ocr-cleanup-symbols').checked) {
-                // 全角数字→半角数字のみ（安全）
+                // 囲み数字の変換（①-⑳, ❶-❿, ⓪-⓿）
+                const circledNumbers = {
+                    '①': '1', '②': '2', '③': '3', '④': '4', '⑤': '5',
+                    '⑥': '6', '⑦': '7', '⑧': '8', '⑨': '9', '⑩': '10',
+                    '⑪': '11', '⑫': '12', '⑬': '13', '⑭': '14', '⑮': '15',
+                    '⑯': '16', '⑰': '17', '⑱': '18', '⑲': '19', '⑳': '20',
+                    '❶': '1', '❷': '2', '❸': '3', '❹': '4', '❺': '5',
+                    '❻': '6', '❼': '7', '❽': '8', '❾': '9', '❿': '10',
+                    '⓪': '0', '⓫': '11', '⓬': '12', '⓭': '13', '⓮': '14',
+                    '⓯': '15', '⓰': '16', '⓱': '17', '⓲': '18', '⓳': '19', '⓴': '20'
+                };
+                
+                // 囲み数字を通常の数字に変換
+                Object.keys(circledNumbers).forEach(circled => {
+                    const regex = new RegExp(circled, 'g');
+                    processed = processed.replace(regex, circledNumbers[circled]);
+                });
+                
+                // 全角数字→半角数字
+                processed = processed.replace(/[０-９]/g, (match) => 
+                    String.fromCharCode(match.charCodeAt(0) - 0xFEE0)
+                );
+                
+                // 明らかな誤認識のみ修正
                 processed = processed
-                    .replace(/[０-９]/g, (match) => String.fromCharCode(match.charCodeAt(0) - 0xFEE0))
-                    // 明らかな誤認識のみ修正
                     .replace(/\b[Oo]\.?\s*(?=\d)/g, '0') // O.数字 → 0数字
                     .replace(/\b[Il]\s*(?=\d)/g, '1') // I数字 → 1数字
-                    .replace(/\b[Il]\b/g, '1'); // 単体のIやl→ 1
+                    .replace(/\b[Il]\b/g, '1') // 単体のIやl→ 1
+                    // 丸記号の変換
+                    .replace(/[○◯◌⚪]/g, '0') // 白丸→ 0
+                    .replace(/[●•⚫]/g, '1'); // 黒丸→ 1
             }
             
             return processed.trim();
