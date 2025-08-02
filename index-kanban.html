@@ -3742,8 +3742,13 @@
                         0, 0, realWidth, realHeight
                     );
                     
-                    // OCR処理
-                    const text = await performOCROnCanvas(croppedCanvas);
+                    // OCR処理（期限領域は特別処理）
+                    let text;
+                    if (area.tag === 'deadline') {
+                        text = await performDeadlineOCR(croppedCanvas);
+                    } else {
+                        text = await performOCROnCanvas(croppedCanvas);
+                    }
                     area.text = text.trim(); // 結果を領域に保存
                 }
                 
@@ -3843,23 +3848,156 @@
             return pairedTasks;
         }
         
-        // 期限テキストを解析
+        // GoogleTODO期限テキストを厳密解析
         function parseDeadlineText(text) {
-            // 既存のGoogleTODO解析ロジックを再利用
-            const parsed = parseGoogleTodoText(text);
-            if (parsed.length > 0 && parsed[0].deadline) {
-                return parsed[0].deadline;
+            console.log('期限解析対象:', text);
+            
+            // GoogleTODOの厳密パターン（ノイズを除去）
+            const cleanText = text.replace(/[^\d月日\(\)火水木金土,:\s]/g, '');
+            console.log('クリーンアップ後:', cleanText);
+            
+            // パターン1: mm月dd日(曜日), hh:mm 形式
+            const pattern1 = /(\d{1,2})月(\d{1,2})日\s*\([月火水木金土日]\)\s*,?\s*(\d{1,2}):(\d{2})/;
+            const match1 = cleanText.match(pattern1);
+            if (match1) {
+                const month = parseInt(match1[1]);
+                const day = parseInt(match1[2]);
+                const hour = parseInt(match1[3]);
+                const minute = parseInt(match1[4]);
+                
+                // 日付・時刻の妥当性チェック
+                if (month >= 1 && month <= 12 && 
+                    day >= 1 && day <= 31 && 
+                    hour >= 0 && hour <= 23 && 
+                    minute >= 0 && minute <= 59) {
+                    
+                    const monthStr = month.toString().padStart(2, '0');
+                    const dayStr = day.toString().padStart(2, '0');
+                    const hourStr = hour.toString().padStart(2, '0');
+                    const minuteStr = minute.toString().padStart(2, '0');
+                    const currentYear = new Date().getFullYear();
+                    const result = `${currentYear}-${monthStr}-${dayStr}T${hourStr}:${minuteStr}`;
+                    console.log('パターン1マッチ:', result);
+                    return result;
+                }
             }
             
-            // 簡易的な日付解析
-            const dateMatch = text.match(/(\d{1,2})月(\d{1,2})日/);
-            if (dateMatch) {
-                const month = dateMatch[1].padStart(2, '0');
-                const day = dateMatch[2].padStart(2, '0');
-                const currentYear = new Date().getFullYear();
-                return `${currentYear}-${month}-${day}`;
+            // パターン2: mm月dd日(曜日) 形式（時刻なし）
+            const pattern2 = /(\d{1,2})月(\d{1,2})日\s*\([月火水木金土日]\)/;
+            const match2 = cleanText.match(pattern2);
+            if (match2) {
+                const month = parseInt(match2[1]);
+                const day = parseInt(match2[2]);
+                
+                // 日付の妥当性チェック
+                if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+                    const monthStr = month.toString().padStart(2, '0');
+                    const dayStr = day.toString().padStart(2, '0');
+                    const currentYear = new Date().getFullYear();
+                    const result = `${currentYear}-${monthStr}-${dayStr}`;
+                    console.log('パターン2マッチ:', result);
+                    return result;
+                }
             }
             
+            // パターン3: mm月dd日, hh:mm 形式（曜日なし）
+            const pattern3 = /(\d{1,2})月(\d{1,2})日\s*,?\s*(\d{1,2}):(\d{2})/;
+            const match3 = cleanText.match(pattern3);
+            if (match3) {
+                const month = parseInt(match3[1]);
+                const day = parseInt(match3[2]);
+                const hour = parseInt(match3[3]);
+                const minute = parseInt(match3[4]);
+                
+                // 日付・時刻の妥当性チェック
+                if (month >= 1 && month <= 12 && 
+                    day >= 1 && day <= 31 && 
+                    hour >= 0 && hour <= 23 && 
+                    minute >= 0 && minute <= 59) {
+                    
+                    const monthStr = month.toString().padStart(2, '0');
+                    const dayStr = day.toString().padStart(2, '0');
+                    const hourStr = hour.toString().padStart(2, '0');
+                    const minuteStr = minute.toString().padStart(2, '0');
+                    const currentYear = new Date().getFullYear();
+                    const result = `${currentYear}-${monthStr}-${dayStr}T${hourStr}:${minuteStr}`;
+                    console.log('パターン3マッチ:', result);
+                    return result;
+                }
+            }
+            
+            // パターン4: mm月dd日 形式（曜日・時刻なし）
+            const pattern4 = /(\d{1,2})月(\d{1,2})日/;
+            const match4 = cleanText.match(pattern4);
+            if (match4) {
+                const month = parseInt(match4[1]);
+                const day = parseInt(match4[2]);
+                
+                // 日付の妥当性チェック
+                if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+                    const monthStr = month.toString().padStart(2, '0');
+                    const dayStr = day.toString().padStart(2, '0');
+                    const currentYear = new Date().getFullYear();
+                    const result = `${currentYear}-${monthStr}-${dayStr}`;
+                    console.log('パターン4マッチ:', result);
+                    return result;
+                }
+            }
+            
+            // パターン5: 時刻のみ hh:mm（今日の期限として処理）
+            const pattern5 = /^(\d{1,2}):(\d{2})$/;
+            const match5 = cleanText.trim().match(pattern5);
+            if (match5) {
+                const hour = parseInt(match5[1]);
+                const minute = parseInt(match5[2]);
+                
+                // 時間の妥当性チェック（GoogleTODOの時間フォーマット）
+                if (hour >= 0 && hour <= 23 && minute >= 0 && minute <= 59) {
+                    const hourStr = hour.toString().padStart(2, '0');
+                    const minuteStr = minute.toString().padStart(2, '0');
+                    const today = new Date();
+                    const result = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}T${hourStr}:${minuteStr}`;
+                    console.log('パターン5マッチ（時刻のみ）:', result);
+                    return result;
+                } else {
+                    console.log('無効な時刻フォーマット:', match5[0]);
+                }
+            }
+            
+            // パターン6: 厳密な時刻チェック付きパターン再検証
+            const timeValidationPatterns = [
+                // より厳密な時刻パターン（0-23時、0-59分のみ許可）
+                /(\d{1,2})月(\d{1,2})日\s*\([月火水木金土日]\)\s*,?\s*([0-2]?\d):([0-5]\d)/,
+                /(\d{1,2})月(\d{1,2})日\s*,?\s*([0-2]?\d):([0-5]\d)/
+            ];
+            
+            for (const pattern of timeValidationPatterns) {
+                const match = cleanText.match(pattern);
+                if (match) {
+                    const month = parseInt(match[1]);
+                    const day = parseInt(match[2]);
+                    const hour = parseInt(match[3]);
+                    const minute = parseInt(match[4]);
+                    
+                    // 日付と時刻の妥当性チェック
+                    if (month >= 1 && month <= 12 && 
+                        day >= 1 && day <= 31 && 
+                        hour >= 0 && hour <= 23 && 
+                        minute >= 0 && minute <= 59) {
+                        
+                        const monthStr = month.toString().padStart(2, '0');
+                        const dayStr = day.toString().padStart(2, '0');
+                        const hourStr = hour.toString().padStart(2, '0');
+                        const minuteStr = minute.toString().padStart(2, '0');
+                        const currentYear = new Date().getFullYear();
+                        const result = `${currentYear}-${monthStr}-${dayStr}T${hourStr}:${minuteStr}`;
+                        console.log('パターン6マッチ（厳密チェック）:', result);
+                        return result;
+                    }
+                }
+            }
+            
+            console.log('期限パターンにマッチせず:', text);
             return null;
         }
         
@@ -4087,6 +4225,107 @@
                     reject(error);
                 }
             });
+        }
+        
+        // 期限専用OCR（より厳密な文字認識）
+        async function performDeadlineOCR(canvas) {
+            return new Promise(async (resolve, reject) => {
+                try {
+                    // より厳密な前処理（期限用）
+                    const processedCanvas = await preprocessDeadlineImage(canvas);
+                    
+                    processedCanvas.toBlob(async (blob) => {
+                        try {
+                            const { data: { text } } = await Tesseract.recognize(
+                                blob,
+                                'jpn+eng',
+                                {
+                                    tessedit_pageseg_mode: Tesseract.PSM.SINGLE_LINE, // 単一行モード
+                                    tessedit_char_whitelist: '0123456789月日()火水木金土:, ', // 期限に必要な文字のみ
+                                    preserve_interword_spaces: '1'
+                                }
+                            );
+                            
+                            // 期限専用ポストプロセッシング
+                            const processedText = postprocessDeadlineText(text);
+                            resolve(processedText);
+                        } catch (error) {
+                            reject(error);
+                        }
+                    });
+                } catch (error) {
+                    reject(error);
+                }
+            });
+        }
+        
+        // 期限専用前処理
+        async function preprocessDeadlineImage(canvas) {
+            const ctx = canvas.getContext('2d');
+            
+            // より強力なコントラスト強化
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const data = imageData.data;
+            
+            // グレースケール + 強いコントラスト
+            for (let i = 0; i < data.length; i += 4) {
+                const gray = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
+                // より厳しい二値化（期限テキストは小さいことが多い）
+                const threshold = 160; // 高めの閾値
+                const value = gray > threshold ? 255 : 0;
+                data[i] = data[i + 1] = data[i + 2] = value;
+            }
+            ctx.putImageData(imageData, 0, 0);
+            
+            // 3倍拡大（期限テキストは小さい）
+            const scaledCanvas = document.createElement('canvas');
+            const scaledCtx = scaledCanvas.getContext('2d');
+            scaledCanvas.width = canvas.width * 3;
+            scaledCanvas.height = canvas.height * 3;
+            
+            scaledCtx.imageSmoothingEnabled = false;
+            scaledCtx.drawImage(canvas, 0, 0, scaledCanvas.width, scaledCanvas.height);
+            
+            return scaledCanvas;
+        }
+        
+        // 期限専用ポストプロセッシング
+        function postprocessDeadlineText(text) {
+            let processed = text.trim();
+            
+            // 囲み数字を通常数字に変換
+            const circledNumbers = {
+                '①': '1', '②': '2', '③': '3', '④': '4', '⑤': '5',
+                '⑥': '6', '⑦': '7', '⑧': '8', '⑨': '9', '⑩': '10',
+                '⑪': '11', '⑫': '12', '⑬': '13', '⑭': '14', '⑮': '15',
+                '⑯': '16', '⑰': '17', '⑱': '18', '⑲': '19', '⑳': '20',
+                '㉑': '21', '㉒': '22', '㉓': '23', '㉔': '24', '㉕': '25',
+                '㉖': '26', '㉗': '27', '㉘': '28', '㉙': '29', '㉚': '30', '㉛': '31'
+            };
+            
+            Object.keys(circledNumbers).forEach(circled => {
+                const regex = new RegExp(circled, 'g');
+                processed = processed.replace(regex, circledNumbers[circled]);
+            });
+            
+            // 期限特有の誤認識を修正
+            processed = processed
+                .replace(/[oO]/g, '0') // o,O → 0
+                .replace(/[lI]/g, '1') // l,I → 1
+                .replace(/[S]/g, '5') // S → 5
+                .replace(/[Zz]/g, '2') // Z,z → 2
+                .replace(/[B]/g, '8') // B → 8
+                .replace(/[G]/g, '6') // G → 6
+                // 全角数字を半角に
+                .replace(/[０-９]/g, (match) => 
+                    String.fromCharCode(match.charCodeAt(0) - 0xFEE0)
+                )
+                // 不要な記号を除去（期限に必要な文字以外）
+                .replace(/[^\d月日\(\)火水木金土,:\ ]/g, '')
+                // 複数スペースを単一スペースに
+                .replace(/\s+/g, ' ');
+            
+            return processed.trim();
         }
         
         // OCR設定リセット
