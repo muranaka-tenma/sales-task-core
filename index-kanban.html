@@ -1005,19 +1005,58 @@
                 </div>
                 
                 <div class="setting-section" style="margin-top: 2rem;">
-                    <h4 style="margin-bottom: 1rem; color: #172b4d;">📝 テキストインポート</h4>
+                    <h4 style="margin-bottom: 1rem; color: #172b4d;">📝 柔軟テキストインポート</h4>
                     <div style="display: flex; flex-direction: column; gap: 1rem;">
-                        <textarea id="import-text" placeholder="TODOテキストを貼り付けてください&#10;例:&#10;- A社への提案書作成 @田中部長 2024-08-05&#10;- B社との打ち合わせ @佐藤課長 2024-08-06&#10;- 契約書レビュー @山田主任 2024-08-07" style="width: 100%; height: 150px; padding: 0.75rem; border: 1px solid #ddd; border-radius: 4px; font-family: monospace; font-size: 0.9rem; resize: vertical;"></textarea>
+                        <textarea id="import-text" placeholder="任意のテキストを貼り付けてください&#10;例:&#10;メール件名、TODO、リスト、何でもOK！&#10;プレビューで確認してからインポートできます" style="width: 100%; height: 120px; padding: 0.75rem; border: 1px solid #ddd; border-radius: 4px; font-family: monospace; font-size: 0.9rem; resize: vertical;"></textarea>
+                        
+                        <!-- インポート設定 -->
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; padding: 1rem; background: #f8f9fa; border-radius: 4px;">
+                            <div>
+                                <label style="display: block; font-weight: 600; margin-bottom: 0.5rem;">デフォルト担当者:</label>
+                                <select id="default-assignee" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                                    <option value="">選択してください</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label style="display: block; font-weight: 600; margin-bottom: 0.5rem;">デフォルト期限:</label>
+                                <input type="date" id="default-deadline" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                            </div>
+                            <div>
+                                <label style="display: block; font-weight: 600; margin-bottom: 0.5rem;">デフォルト優先度:</label>
+                                <select id="default-priority" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                                    <option value="low">🟢 通常</option>
+                                    <option value="medium" selected>🟡 重要</option>
+                                    <option value="high">🔴 最重要</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label style="display: block; font-weight: 600; margin-bottom: 0.5rem;">配置先カラム:</label>
+                                <select id="default-column" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                                    <option value="todo">📋 TODO</option>
+                                </select>
+                            </div>
+                        </div>
+                        
                         <div style="display: flex; gap: 0.5rem;">
-                            <button onclick="importTasks()" style="flex: 1; padding: 0.75rem; background: #38a169; color: white; border: none; border-radius: 4px; cursor: pointer;">📥 インポート</button>
+                            <button onclick="previewImport()" style="flex: 1; padding: 0.75rem; background: #0079bf; color: white; border: none; border-radius: 4px; cursor: pointer;">👁️ プレビュー</button>
                             <button onclick="clearImportText()" style="padding: 0.75rem; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer;">🗑️ クリア</button>
                         </div>
+                        
+                        <!-- プレビューエリア -->
+                        <div id="import-preview" style="display: none; border: 1px solid #ddd; border-radius: 4px; background: #f8f9fa;">
+                            <div style="padding: 1rem; border-bottom: 1px solid #ddd; background: #e3f2fd;">
+                                <h5 style="margin: 0; color: #172b4d;">📋 インポートプレビュー</h5>
+                            </div>
+                            <div id="preview-content" style="padding: 1rem; max-height: 300px; overflow-y: auto;"></div>
+                            <div style="padding: 1rem; border-top: 1px solid #ddd; display: flex; gap: 0.5rem;">
+                                <button onclick="executeImport()" style="flex: 1; padding: 0.75rem; background: #38a169; color: white; border: none; border-radius: 4px; cursor: pointer;">✅ インポート実行</button>
+                                <button onclick="hidePreview()" style="padding: 0.75rem; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer;">キャンセル</button>
+                            </div>
+                        </div>
+                        
                         <div style="font-size: 0.8rem; color: #6c757d; line-height: 1.4;">
-                            <strong>インポート形式:</strong><br>
-                            • 各行1つのタスク<br>
-                            • @担当者名 で担当者指定<br>
-                            • 日付（YYYY-MM-DD）で期限指定<br>
-                            • - または • で始まる行のみ処理
+                            <strong>💡 使い方:</strong> 任意のテキストを貼り付け → プレビューで確認 → インポート実行<br>
+                            自動認識: @担当者、日付、!!!高優先度、行の先頭記号など
                         </div>
                     </div>
                 </div>
@@ -2061,6 +2100,33 @@
             document.getElementById('settingsModal').style.display = 'block';
             loadAlertSettings();
             loadColumnManager();
+            loadImportDefaults();
+        }
+        
+        // インポート設定の初期化
+        function loadImportDefaults() {
+            // 担当者選択肢を更新
+            const assigneeSelect = document.getElementById('default-assignee');
+            assigneeSelect.innerHTML = '<option value="">選択してください</option>';
+            assignees.forEach(assignee => {
+                const option = document.createElement('option');
+                option.value = assignee;
+                option.textContent = assignee;
+                assigneeSelect.appendChild(option);
+            });
+            
+            // カラム選択肢を更新
+            const columnSelect = document.getElementById('default-column');
+            columnSelect.innerHTML = '';
+            columns.forEach(column => {
+                const option = document.createElement('option');
+                option.value = column.id;
+                option.textContent = column.title;
+                columnSelect.appendChild(option);
+            });
+            
+            // デフォルト期限を今日に設定
+            document.getElementById('default-deadline').value = new Date().toISOString().split('T')[0];
         }
         
         function closeSettingsModal() {
@@ -2516,89 +2582,192 @@
             setupFileDropZone();
         });
         
-        // テキストインポート機能
-        function importTasks() {
+        // 柔軟テキストインポート機能
+        let previewTasks = [];
+        
+        function previewImport() {
             const importText = document.getElementById('import-text').value.trim();
             if (!importText) {
                 alert('インポートするテキストを入力してください');
                 return;
             }
             
-            const lines = importText.split('\n').filter(line => {
-                const trimmed = line.trim();
-                return trimmed && (trimmed.startsWith('-') || trimmed.startsWith('•') || trimmed.startsWith('*'));
+            // デフォルト設定を取得
+            const defaultAssignee = document.getElementById('default-assignee').value || '未設定';
+            const defaultDeadline = document.getElementById('default-deadline').value || new Date().toISOString().split('T')[0];
+            const defaultPriority = document.getElementById('default-priority').value;
+            const defaultColumn = document.getElementById('default-column').value;
+            
+            // テキストを行に分割してタスクを解析
+            const lines = importText.split('\n').filter(line => line.trim());
+            previewTasks = [];
+            
+            lines.forEach((line, index) => {
+                let taskText = line.trim();
+                
+                // 空行やあまりに短い行はスキップ
+                if (!taskText || taskText.length < 2) return;
+                
+                // 先頭記号を除去
+                taskText = taskText.replace(/^[-•*\d+\.)]\s*/, '').trim();
+                
+                // 担当者を抽出
+                const assigneeMatch = taskText.match(/@([^\s@]+)/g);
+                let assignee = defaultAssignee;
+                if (assigneeMatch && assigneeMatch.length > 0) {
+                    assignee = assigneeMatch[0].replace('@', '');
+                    taskText = taskText.replace(/@[^\s@]+/g, '').trim();
+                }
+                
+                // 日付を抽出（複数の形式に対応）
+                const dateMatches = taskText.match(/(\d{4}[-\/]\d{1,2}[-\/]\d{1,2})|(\d{1,2}[-\/]\d{1,2}[-\/]\d{4})|(\d{1,2}月\d{1,2}日)/g);
+                let deadline = defaultDeadline;
+                if (dateMatches && dateMatches.length > 0) {
+                    // 最初にマッチした日付を使用
+                    let dateStr = dateMatches[0];
+                    // 日本語形式の変換
+                    if (dateStr.includes('月') && dateStr.includes('日')) {
+                        const year = new Date().getFullYear();
+                        const month = dateStr.match(/(\d{1,2})月/)[1].padStart(2, '0');
+                        const day = dateStr.match(/(\d{1,2})日/)[1].padStart(2, '0');
+                        deadline = `${year}-${month}-${day}`;
+                    } else {
+                        // YYYY-MM-DD または MM-DD-YYYY 形式を正規化
+                        const parts = dateStr.split(/[-\/]/);
+                        if (parts[0].length === 4) {
+                            deadline = `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`;
+                        } else {
+                            const year = parts[2].length === 4 ? parts[2] : new Date().getFullYear();
+                            deadline = `${year}-${parts[0].padStart(2, '0')}-${parts[1].padStart(2, '0')}`;
+                        }
+                    }
+                    taskText = taskText.replace(/(\d{4}[-\/]\d{1,2}[-\/]\d{1,2})|(\d{1,2}[-\/]\d{1,2}[-\/]\d{4})|(\d{1,2}月\d{1,2}日)/g, '').trim();
+                }
+                
+                // 優先度を抽出
+                let priority = defaultPriority;
+                if (taskText.match(/[!！]{2,}|高|緊急|urgent|URGENT|急/)) {
+                    priority = 'high';
+                    taskText = taskText.replace(/[!！]+|高|緊急|urgent|URGENT|急/g, '').trim();
+                } else if (taskText.match(/低|later|LATER|後で/)) {
+                    priority = 'low';
+                    taskText = taskText.replace(/低|later|LATER|後で/g, '').trim();
+                }
+                
+                // カテゴリやタグを抽出（#で始まる）
+                const tags = taskText.match(/#[^\s#]+/g) || [];
+                if (tags.length > 0) {
+                    taskText = taskText.replace(/#[^\s#]+/g, '').trim();
+                }
+                
+                // 最終的なタスク名をクリーンアップ
+                taskText = taskText.replace(/\s+/g, ' ').trim();
+                
+                if (taskText && taskText.length > 1) {
+                    previewTasks.push({
+                        id: `preview_${index}`,
+                        title: taskText,
+                        assignee: assignee,
+                        deadline: deadline,
+                        priority: priority,
+                        columnId: defaultColumn,
+                        tags: tags,
+                        originalLine: line
+                    });
+                }
             });
             
-            if (lines.length === 0) {
-                alert('有効なタスク行が見つかりません。- または • で始まる行を入力してください。');
+            // プレビューを表示
+            displayPreview();
+        }
+        
+        function displayPreview() {
+            const previewDiv = document.getElementById('import-preview');
+            const contentDiv = document.getElementById('preview-content');
+            
+            if (previewTasks.length === 0) {
+                alert('有効なタスクが見つかりませんでした。テキストを確認してください。');
+                return;
+            }
+            
+            contentDiv.innerHTML = `
+                <div style="margin-bottom: 1rem; padding: 0.75rem; background: #e8f5e8; border-radius: 4px; color: #2f7d2f;">
+                    <strong>✅ ${previewTasks.length}個のタスクが見つかりました</strong>
+                </div>
+                ${previewTasks.map((task, index) => `
+                    <div style="border: 1px solid #ddd; border-radius: 4px; margin-bottom: 0.75rem; overflow: hidden;">
+                        <div style="background: #f8f9fa; padding: 0.5rem; border-bottom: 1px solid #ddd; font-size: 0.8rem; color: #6c757d;">
+                            元のテキスト: "${task.originalLine}"
+                        </div>
+                        <div style="padding: 0.75rem;">
+                            <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 0.5rem; align-items: center;">
+                                <div>
+                                    <strong>📝 ${task.title}</strong>
+                                    ${task.tags.length > 0 ? `<div style="font-size: 0.8rem; color: #0079bf;">${task.tags.join(' ')}</div>` : ''}
+                                </div>
+                                <div style="font-size: 0.8rem;">
+                                    👤 ${task.assignee}
+                                </div>
+                                <div style="font-size: 0.8rem;">
+                                    📅 ${task.deadline}
+                                </div>
+                                <div style="font-size: 0.8rem;">
+                                    ${task.priority === 'high' ? '🔴 最重要' : task.priority === 'medium' ? '🟡 重要' : '🟢 通常'}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `).join('')}
+            `;
+            
+            previewDiv.style.display = 'block';
+        }
+        
+        function executeImport() {
+            if (previewTasks.length === 0) {
+                alert('インポートするタスクがありません');
                 return;
             }
             
             let importedCount = 0;
-            const today = new Date().toISOString().split('T')[0];
             
-            lines.forEach(line => {
-                // タスク名を抽出（先頭の記号を除去）
-                let taskText = line.replace(/^[-•*]\s*/, '').trim();
-                
-                // 担当者を抽出
-                const assigneeMatch = taskText.match(/@([^\s]+)/);
-                const assignee = assigneeMatch ? assigneeMatch[1] : '未設定';
-                if (assigneeMatch) {
-                    taskText = taskText.replace(/@[^\s]+/g, '').trim();
+            previewTasks.forEach((previewTask, index) => {
+                // 担当者をリストに追加（存在しない場合）
+                if (previewTask.assignee !== '未設定' && !assignees.includes(previewTask.assignee)) {
+                    assignees.push(previewTask.assignee);
+                    localStorage.setItem('taskAssignees', JSON.stringify(assignees));
                 }
                 
-                // 日付を抽出
-                const dateMatch = taskText.match(/(\d{4}-\d{2}-\d{2})/);
-                const deadline = dateMatch ? dateMatch[1] : today;
-                if (dateMatch) {
-                    taskText = taskText.replace(/\d{4}-\d{2}-\d{2}/g, '').trim();
-                }
+                const newTask = {
+                    id: Date.now() + index,
+                    title: previewTask.title,
+                    deadline: new Date(`${previewTask.deadline}T17:00`).toISOString(),
+                    priority: previewTask.priority,
+                    assignees: [previewTask.assignee],
+                    assignee: previewTask.assignee,
+                    memo: `インポート: ${new Date().toLocaleDateString()}${previewTask.tags.length > 0 ? ' / タグ: ' + previewTask.tags.join(' ') : ''}`,
+                    columnId: previewTask.columnId,
+                    completed: false,
+                    createdAt: new Date().toISOString(),
+                    comments: []
+                };
                 
-                // 優先度を抽出
-                let priority = 'medium';
-                if (taskText.includes('!!!') || taskText.includes('高') || taskText.includes('急')) {
-                    priority = 'high';
-                    taskText = taskText.replace(/[!！高急]/g, '').trim();
-                } else if (taskText.includes('低') || taskText.includes('later')) {
-                    priority = 'low';
-                    taskText = taskText.replace(/[低]/g, '').trim();
-                }
-                
-                if (taskText) {
-                    // 担当者をリストに追加（存在しない場合）
-                    if (assignee !== '未設定' && !assignees.includes(assignee)) {
-                        assignees.push(assignee);
-                        localStorage.setItem('taskAssignees', JSON.stringify(assignees));
-                    }
-                    
-                    const newTask = {
-                        id: Date.now() + importedCount,
-                        title: taskText,
-                        deadline: new Date(`${deadline}T17:00`).toISOString(),
-                        priority: priority,
-                        assignees: [assignee],
-                        assignee: assignee,
-                        memo: `インポート: ${new Date().toLocaleDateString()}`,
-                        columnId: 'todo',
-                        completed: false,
-                        createdAt: new Date().toISOString(),
-                        comments: []
-                    };
-                    
-                    tasks.push(newTask);
-                    importedCount++;
-                }
+                tasks.push(newTask);
+                importedCount++;
             });
             
             if (importedCount > 0) {
                 saveTasks();
                 render();
                 document.getElementById('import-text').value = '';
-                alert(`${importedCount}個のタスクをインポートしました`);
-            } else {
-                alert('インポートできるタスクがありませんでした');
+                hidePreview();
+                alert(`✅ ${importedCount}個のタスクをインポートしました！`);
             }
+        }
+        
+        function hidePreview() {
+            document.getElementById('import-preview').style.display = 'none';
+            previewTasks = [];
         }
         
         function clearImportText() {
