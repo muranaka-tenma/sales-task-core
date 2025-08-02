@@ -1023,34 +1023,6 @@
                     <div style="display: flex; flex-direction: column; gap: 1rem;">
                         <textarea id="import-text" placeholder="シンプル形式でタスクを入力してください&#10;例:&#10;A社への提案書作成 @田中部長 2024-08-05&#10;  詳細確認事項（半角スペース2個）&#10;  見積もり調整&#10;B社打ち合わせ!!! @佐藤課長&#10;　資料準備済み（全角スペース）&#10;		会議室予約（タブ）&#10;C社フォローアップ" style="width: 100%; height: 120px; padding: 0.75rem; border: 1px solid #ddd; border-radius: 4px; font-family: monospace; font-size: 0.9rem; resize: vertical;"></textarea>
                         
-                        <!-- インポート設定 -->
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; padding: 1rem; background: #f8f9fa; border-radius: 4px;">
-                            <div>
-                                <label style="display: block; font-weight: 600; margin-bottom: 0.5rem;">デフォルト担当者:</label>
-                                <select id="default-assignee" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
-                                    <option value="">選択してください</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label style="display: block; font-weight: 600; margin-bottom: 0.5rem;">デフォルト期限:</label>
-                                <input type="date" id="default-deadline" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
-                            </div>
-                            <div>
-                                <label style="display: block; font-weight: 600; margin-bottom: 0.5rem;">デフォルト優先度:</label>
-                                <select id="default-priority" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
-                                    <option value="low">🟢 通常</option>
-                                    <option value="medium" selected>🟡 重要</option>
-                                    <option value="high">🔴 最重要</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label style="display: block; font-weight: 600; margin-bottom: 0.5rem;">配置先カラム:</label>
-                                <select id="default-column" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
-                                    <option value="todo">📋 TODO</option>
-                                </select>
-                            </div>
-                        </div>
-                        
                         <div style="display: flex; gap: 0.5rem;">
                             <button onclick="previewImport()" style="flex: 1; padding: 0.75rem; background: #0079bf; color: white; border: none; border-radius: 4px; cursor: pointer;">👁️ プレビュー</button>
                             <button onclick="clearImportText()" style="padding: 0.75rem; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer;">🗑️ クリア</button>
@@ -1066,12 +1038,12 @@
                             </div>
                         </div>
                         
-                        <!-- プレビューエリア -->
+                        <!-- プレビューエリア - 拡大版 -->
                         <div id="import-preview" style="display: none; border: 1px solid #ddd; border-radius: 4px; background: #f8f9fa;">
                             <div style="padding: 1rem; border-bottom: 1px solid #ddd; background: #e3f2fd;">
-                                <h5 style="margin: 0; color: #172b4d;">📋 インポートプレビュー</h5>
+                                <h5 style="margin: 0; color: #172b4d;">📋 インポートプレビュー - ドラッグ&ドロップで編集可能</h5>
                             </div>
-                            <div id="preview-content" style="padding: 1rem; max-height: 300px; overflow-y: auto;"></div>
+                            <div id="preview-content" style="padding: 1rem; max-height: 500px; overflow-y: auto;"></div>
                             <div style="padding: 1rem; border-top: 1px solid #ddd; display: flex; gap: 0.5rem;">
                                 <button onclick="executeImport()" style="flex: 1; padding: 0.75rem; background: #38a169; color: white; border: none; border-radius: 4px; cursor: pointer;">✅ インポート実行</button>
                                 <button onclick="hidePreview()" style="padding: 0.75rem; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer;">キャンセル</button>
@@ -2618,11 +2590,12 @@
                 return;
             }
             
-            // デフォルト設定を取得
-            const defaultAssignee = document.getElementById('default-assignee').value || '未設定';
-            const defaultDeadline = document.getElementById('default-deadline').value || new Date().toISOString().split('T')[0];
-            const defaultPriority = document.getElementById('default-priority').value;
-            const defaultColumn = document.getElementById('default-column').value;
+            // デフォルト設定（ユーザー統一）
+            const currentUser = localStorage.getItem('currentUser') || 'ユーザー';
+            const defaultAssignee = currentUser;
+            const defaultDeadline = new Date().toISOString().split('T')[0];
+            const defaultPriority = 'medium';
+            const defaultColumn = 'todo';
             
             // テキストを行に分割
             const lines = importText.split('\n');
@@ -2696,7 +2669,8 @@
                         lineIndex: index,
                         isMainTask: isMainTask, // スマート判定結果
                         parentIndex: isMainTask ? null : lastMainTaskIndex, // 自動で直前のメインタスクを親に設定
-                        isSkip: false // スキップするかどうか
+                        isSkip: false, // スキップするかどうか
+                        autoDetected: !isMainTask && hasIndent // インデントで自動判定されたコメントかどうか
                     };
                     
                     // メインタスクの場合、インデックスを記録
@@ -2736,6 +2710,7 @@
                 ).join('');
                 
                 const isAutoComment = !task.isMainTask && task.parentIndex !== null;
+                const isAutoDetected = task.autoDetected === true; // 自動判定されたコメントかどうか（明示的にtrueの場合のみ）
                 const borderColor = isAutoComment ? '#28a745' : '#ddd';
                 const bgColor = isAutoComment ? '#f8fff9' : 'white';
                 
@@ -2752,7 +2727,7 @@
                         
                         <!-- ドラッグハンドル -->
                         <div style="background: ${borderColor}; padding: 0.4rem 0.8rem; text-align: center; color: white; font-weight: bold; cursor: grab; user-select: none; font-size: 0.85rem;">
-                            ⋮⋮ ${isAutoComment ? '✨ 自動コメント' : 'ドラッグ可能'} ⋮⋮
+                            ⋮⋮ ${isAutoDetected ? '✨ 自動コメント' : 'ドラッグ可能'} ⋮⋮
                         </div>
                         
                         <!-- テキスト表示エリア -->
@@ -2789,6 +2764,18 @@
                                         ${columns.map(c => `<option value="${c.id}" ${task.columnId === c.id ? 'selected' : ''}>${c.title}</option>`).join('')}
                                     </select>
                                 </div>
+                                
+                                <!-- 担当者設定 -->
+                                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                    <label style="font-weight: 600; min-width: 60px; font-size: 0.85rem; color: #333;">担当:</label>
+                                    <input type="text" onchange="updateTaskAssignee(${index}, this.value)" value="${task.assignee}" style="flex: 1; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; font-size: 0.9rem; background: white;" placeholder="担当者名" id="assignee-input-${index}">
+                                </div>
+                                
+                                <!-- 期限設定 -->
+                                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                    <label style="font-weight: 600; min-width: 60px; font-size: 0.85rem; color: #333;">期限:</label>
+                                    <input type="date" onchange="updateTaskDeadline(${index}, this.value)" value="${task.deadline}" style="flex: 1; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; font-size: 0.9rem; background: white;" id="deadline-input-${index}">
+                                </div>
                                 `}
                             </div>
                         </div>
@@ -2810,6 +2797,18 @@
             
             contentDiv.innerHTML = content;
             previewDiv.style.display = 'block';
+        }
+        
+        function updateTaskAssignee(index, assignee) {
+            if (previewTasks[index]) {
+                previewTasks[index].assignee = assignee;
+            }
+        }
+        
+        function updateTaskDeadline(index, deadline) {
+            if (previewTasks[index]) {
+                previewTasks[index].deadline = deadline;
+            }
         }
         
         function updateTaskType(index, type) {
@@ -2839,8 +2838,10 @@
                     parentSelect.disabled = true;
                     parentSelect.value = '';
                     previewTasks[index].parentIndex = null;
+                    previewTasks[index].autoDetected = false; // 手動で変更したため自動判定ではない
                     columnSelect.disabled = false;
                 } else if (type === 'comment') {
+                    previewTasks[index].autoDetected = false; // 手動で変更したため自動判定ではない
                     parentSelect.disabled = false;
                     columnSelect.disabled = true;
                 } else { // skip
@@ -2853,6 +2854,7 @@
         function updateTaskParent(index, parentIndex) {
             if (previewTasks[index]) {
                 previewTasks[index].parentIndex = parentIndex ? parseInt(parentIndex) : null;
+                previewTasks[index].autoDetected = false; // 手動で変更したため自動判定ではない
             }
         }
         
@@ -2939,6 +2941,7 @@
                 
                 draggedTask.isMainTask = false;
                 draggedTask.parentIndex = targetIndex;
+                draggedTask.autoDetected = false; // ドラッグで変更したため自動判定ではない
                 
                 // UIを更新
                 displayLineByLinePreview();
@@ -3067,6 +3070,7 @@
             
             let importedCount = 0;
             const taskIdMap = {}; // インデックスと実際のタスクIDのマッピング
+            const currentUser = localStorage.getItem('currentUser') || 'ユーザー';
             
             // まずメインタスクを作成
             previewTasks.forEach((previewTask, index) => {
@@ -3123,8 +3127,11 @@
             if (importedCount > 0) {
                 saveTasks();
                 render();
+                
+                // プレビューをリセットしてタスク画面に切り替え
                 document.getElementById('import-text').value = '';
                 hidePreview();
+                closeSettingsModal();
                 
                 const commentCount = previewTasks.filter(t => !t.isMainTask && !t.isSkip).length;
                 let message = `✅ ${importedCount}個のタスクをインポートしました！`;
