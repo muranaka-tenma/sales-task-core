@@ -2180,7 +2180,7 @@
         function updateColumnColor(index, color) {
             columns[index].color = color;
             localStorage.setItem('kanbanColumns', JSON.stringify(columns));
-            renderBoard();
+            render(); // 即座に反映
         }
         
         function deleteColumn(index) {
@@ -2599,11 +2599,21 @@
             const defaultColumn = document.getElementById('default-column').value;
             
             // テキストを行に分割してタスクを解析
-            const lines = importText.split('\n').filter(line => line.trim());
+            const lines = importText.split('\n');
             previewTasks = [];
+            let parentStack = []; // 親タスクのスタック
             
             lines.forEach((line, index) => {
+                if (!line.trim()) return;
+                
+                // インデントレベルを検出
+                const indentMatch = line.match(/^(\s*[┗└├│\s]*)/);
+                const indentLevel = indentMatch ? Math.floor(indentMatch[1].length / 2) : 0;
+                
                 let taskText = line.trim();
+                
+                // ツリー記号を除去
+                taskText = taskText.replace(/^[┗└├│\s]*/, '').trim();
                 
                 // 空行やあまりに短い行はスキップ
                 if (!taskText || taskText.length < 2) return;
@@ -2623,16 +2633,13 @@
                 const dateMatches = taskText.match(/(\d{4}[-\/]\d{1,2}[-\/]\d{1,2})|(\d{1,2}[-\/]\d{1,2}[-\/]\d{4})|(\d{1,2}月\d{1,2}日)/g);
                 let deadline = defaultDeadline;
                 if (dateMatches && dateMatches.length > 0) {
-                    // 最初にマッチした日付を使用
                     let dateStr = dateMatches[0];
-                    // 日本語形式の変換
                     if (dateStr.includes('月') && dateStr.includes('日')) {
                         const year = new Date().getFullYear();
                         const month = dateStr.match(/(\d{1,2})月/)[1].padStart(2, '0');
                         const day = dateStr.match(/(\d{1,2})日/)[1].padStart(2, '0');
                         deadline = `${year}-${month}-${day}`;
                     } else {
-                        // YYYY-MM-DD または MM-DD-YYYY 形式を正規化
                         const parts = dateStr.split(/[-\/]/);
                         if (parts[0].length === 4) {
                             deadline = `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`;
@@ -2654,17 +2661,32 @@
                     taskText = taskText.replace(/低|later|LATER|後で/g, '').trim();
                 }
                 
-                // カテゴリやタグを抽出（#で始まる）
+                // カテゴリやタグを抽出
                 const tags = taskText.match(/#[^\s#]+/g) || [];
                 if (tags.length > 0) {
                     taskText = taskText.replace(/#[^\s#]+/g, '').trim();
                 }
                 
-                // 最終的なタスク名をクリーンアップ
+                // プロジェクト名を自動検出（大文字のキーワード）
+                const projectMatch = taskText.match(/^([A-Z]{2,}|[ァ-ヴー]+|フリービット|DT|BL)/);
+                const project = projectMatch ? projectMatch[1] : '';
+                
                 taskText = taskText.replace(/\s+/g, ' ').trim();
                 
                 if (taskText && taskText.length > 1) {
-                    previewTasks.push({
+                    // 親タスクを決定
+                    let parentId = null;
+                    if (indentLevel > 0 && parentStack.length > 0) {
+                        // 適切な親を見つける
+                        while (parentStack.length > indentLevel) {
+                            parentStack.pop();
+                        }
+                        if (parentStack.length > 0) {
+                            parentId = parentStack[parentStack.length - 1];
+                        }
+                    }
+                    
+                    const task = {
                         id: `preview_${index}`,
                         title: taskText,
                         assignee: assignee,
@@ -2672,8 +2694,21 @@
                         priority: priority,
                         columnId: defaultColumn,
                         tags: tags,
-                        originalLine: line
-                    });
+                        originalLine: line,
+                        indentLevel: indentLevel,
+                        parentId: parentId,
+                        project: project
+                    };
+                    
+                    previewTasks.push(task);
+                    
+                    // 現在のタスクを親スタックに追加
+                    if (parentStack.length <= indentLevel) {
+                        parentStack.push(task.id);
+                    } else {
+                        parentStack[indentLevel] = task.id;
+                        parentStack = parentStack.slice(0, indentLevel + 1);
+                    }
                 }
             });
             
@@ -2690,37 +2725,89 @@
                 return;
             }
             
-            contentDiv.innerHTML = `
+            // プロジェクトごとにグループ化
+            const projectGroups = {};
+            previewTasks.forEach(task => {
+                const projectKey = task.project || '未分類';
+                if (!projectGroups[projectKey]) {
+                    projectGroups[projectKey] = [];
+                }
+                projectGroups[projectKey].push(task);
+            });
+            
+            let content = `
                 <div style="margin-bottom: 1rem; padding: 0.75rem; background: #e8f5e8; border-radius: 4px; color: #2f7d2f;">
                     <strong>✅ ${previewTasks.length}個のタスクが見つかりました</strong>
+                    ${Object.keys(projectGroups).length > 1 ? `<span style="margin-left: 1rem; font-size: 0.9rem;">(${Object.keys(projectGroups).length}プロジェクト)</span>` : ''}
                 </div>
-                ${previewTasks.map((task, index) => `
-                    <div style="border: 1px solid #ddd; border-radius: 4px; margin-bottom: 0.75rem; overflow: hidden;">
-                        <div style="background: #f8f9fa; padding: 0.5rem; border-bottom: 1px solid #ddd; font-size: 0.8rem; color: #6c757d;">
-                            元のテキスト: "${task.originalLine}"
-                        </div>
-                        <div style="padding: 0.75rem;">
-                            <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 0.5rem; align-items: center;">
-                                <div>
-                                    <strong>📝 ${task.title}</strong>
-                                    ${task.tags.length > 0 ? `<div style="font-size: 0.8rem; color: #0079bf;">${task.tags.join(' ')}</div>` : ''}
-                                </div>
-                                <div style="font-size: 0.8rem;">
-                                    👤 ${task.assignee}
-                                </div>
-                                <div style="font-size: 0.8rem;">
-                                    📅 ${task.deadline}
-                                </div>
-                                <div style="font-size: 0.8rem;">
-                                    ${task.priority === 'high' ? '🔴 最重要' : task.priority === 'medium' ? '🟡 重要' : '🟢 通常'}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                `).join('')}
             `;
             
+            Object.entries(projectGroups).forEach(([project, tasks]) => {
+                content += `
+                    <div style="margin-bottom: 1.5rem;">
+                        ${project !== '未分類' ? `<div style="background: #0079bf; color: white; padding: 0.5rem 1rem; border-radius: 4px 4px 0 0; font-weight: bold;">📁 ${project} プロジェクト</div>` : ''}
+                        ${tasks.map((task, index) => {
+                            const taskIndex = previewTasks.indexOf(task);
+                            const indentStyle = task.indentLevel > 0 ? `margin-left: ${task.indentLevel * 20}px; border-left: 2px solid #0079bf;` : '';
+                            const parentInfo = task.parentId ? `<span style="font-size: 0.7rem; color: #6c757d;">↳ 子タスク</span>` : '';
+                            
+                            return `
+                                <div style="border: 1px solid #ddd; border-radius: 4px; margin-bottom: 0.5rem; overflow: hidden; ${indentStyle}">
+                                    <div style="background: #f8f9fa; padding: 0.5rem; border-bottom: 1px solid #ddd; font-size: 0.8rem; color: #6c757d;">
+                                        元のテキスト: "${task.originalLine}" ${parentInfo}
+                                    </div>
+                                    <div style="padding: 0.75rem;">
+                                        <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 0.5rem; align-items: center; margin-bottom: 0.75rem;">
+                                            <div>
+                                                <input type="text" value="${task.title}" onchange="updatePreviewTask(${taskIndex}, 'title', this.value)" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; font-weight: bold;">
+                                                ${task.tags.length > 0 ? `<div style="font-size: 0.8rem; color: #0079bf; margin-top: 0.25rem;">${task.tags.join(' ')}</div>` : ''}
+                                            </div>
+                                            <div>
+                                                <select onchange="updatePreviewTask(${taskIndex}, 'assignee', this.value)" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                                                    <option value="未設定" ${task.assignee === '未設定' ? 'selected' : ''}>未設定</option>
+                                                    ${assignees.map(a => `<option value="${a}" ${task.assignee === a ? 'selected' : ''}>${a}</option>`).join('')}
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <input type="date" value="${task.deadline}" onchange="updatePreviewTask(${taskIndex}, 'deadline', this.value)" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                                            </div>
+                                            <div>
+                                                <select onchange="updatePreviewTask(${taskIndex}, 'priority', this.value)" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                                                    <option value="low" ${task.priority === 'low' ? 'selected' : ''}>🟢 通常</option>
+                                                    <option value="medium" ${task.priority === 'medium' ? 'selected' : ''}>🟡 重要</option>
+                                                    <option value="high" ${task.priority === 'high' ? 'selected' : ''}>🔴 最重要</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div style="display: flex; gap: 0.5rem; align-items: center;">
+                                            <select onchange="updatePreviewTask(${taskIndex}, 'columnId', this.value)" style="padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
+                                                ${columns.map(c => `<option value="${c.id}" ${task.columnId === c.id ? 'selected' : ''}>${c.title}</option>`).join('')}
+                                            </select>
+                                            <button onclick="removePreviewTask(${taskIndex})" style="padding: 0.5rem; background: #e53e3e; color: white; border: none; border-radius: 4px; cursor: pointer;">🗑️ 削除</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                `;
+            });
+            
+            contentDiv.innerHTML = content;
             previewDiv.style.display = 'block';
+        }
+        
+        function updatePreviewTask(index, field, value) {
+            if (previewTasks[index]) {
+                previewTasks[index][field] = value;
+            }
+        }
+        
+        function removePreviewTask(index) {
+            if (confirm('このタスクを削除しますか？')) {
+                previewTasks.splice(index, 1);
+                displayPreview();
+            }
         }
         
         function executeImport() {
@@ -2730,26 +2817,57 @@
             }
             
             let importedCount = 0;
+            const taskIdMap = {}; // プレビューIDと実際のIDのマッピング
             
-            previewTasks.forEach((previewTask, index) => {
+            // まず親タスクから作成
+            const sortedTasks = [...previewTasks].sort((a, b) => a.indentLevel - b.indentLevel);
+            
+            sortedTasks.forEach((previewTask, index) => {
                 // 担当者をリストに追加（存在しない場合）
                 if (previewTask.assignee !== '未設定' && !assignees.includes(previewTask.assignee)) {
                     assignees.push(previewTask.assignee);
                     localStorage.setItem('taskAssignees', JSON.stringify(assignees));
                 }
                 
+                const taskId = Date.now() + index;
+                taskIdMap[previewTask.id] = taskId;
+                
+                // 親タスクIDを解決
+                let parentTaskId = null;
+                if (previewTask.parentId && taskIdMap[previewTask.parentId]) {
+                    parentTaskId = taskIdMap[previewTask.parentId];
+                }
+                
+                let memoContent = `インポート: ${new Date().toLocaleDateString()}`;
+                if (previewTask.tags.length > 0) {
+                    memoContent += ` / タグ: ${previewTask.tags.join(' ')}`;
+                }
+                if (previewTask.project) {
+                    memoContent += ` / プロジェクト: ${previewTask.project}`;
+                }
+                if (parentTaskId) {
+                    const parentTask = tasks.find(t => t.id === parentTaskId);
+                    if (parentTask) {
+                        memoContent += ` / 親タスク: ${parentTask.title}`;
+                    }
+                }
+                
                 const newTask = {
-                    id: Date.now() + index,
+                    id: taskId,
                     title: previewTask.title,
                     deadline: new Date(`${previewTask.deadline}T17:00`).toISOString(),
                     priority: previewTask.priority,
                     assignees: [previewTask.assignee],
                     assignee: previewTask.assignee,
-                    memo: `インポート: ${new Date().toLocaleDateString()}${previewTask.tags.length > 0 ? ' / タグ: ' + previewTask.tags.join(' ') : ''}`,
+                    memo: memoContent,
                     columnId: previewTask.columnId,
                     completed: false,
                     createdAt: new Date().toISOString(),
-                    comments: []
+                    comments: [],
+                    parentTaskId: parentTaskId,
+                    project: previewTask.project || null,
+                    indentLevel: previewTask.indentLevel,
+                    originalLine: previewTask.originalLine
                 };
                 
                 tasks.push(newTask);
@@ -2761,7 +2879,13 @@
                 render();
                 document.getElementById('import-text').value = '';
                 hidePreview();
-                alert(`✅ ${importedCount}個のタスクをインポートしました！`);
+                
+                const projects = [...new Set(previewTasks.map(t => t.project).filter(p => p))];
+                let message = `✅ ${importedCount}個のタスクをインポートしました！`;
+                if (projects.length > 0) {
+                    message += `\n📁 プロジェクト: ${projects.join(', ')}`;
+                }
+                alert(message);
             }
         }
         
