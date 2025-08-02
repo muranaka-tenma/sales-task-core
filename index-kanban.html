@@ -725,12 +725,12 @@
         
         .theme-modal-content {
             background-color: white;
-            margin: 2% auto;
+            margin: 1% auto;
             padding: 0;
             border-radius: 8px;
-            width: 95%;
-            max-width: 1200px;
-            max-height: 92vh;
+            width: 98%;
+            max-width: 1600px;
+            max-height: 95vh;
             box-shadow: 0 4px 20px rgba(0,0,0,0.2);
             animation: slideIn 0.3s ease;
             display: flex;
@@ -792,6 +792,13 @@
         @keyframes slideIn {
             from { transform: translateY(-20px); opacity: 0; }
             to { transform: translateY(0); opacity: 1; }
+        }
+        
+        /* プレビューグリッドのレスポンシブ対応 */
+        @media (max-width: 1200px) {
+            .preview-grid {
+                grid-template-columns: 1fr !important;
+            }
         }
     </style>
 </head>
@@ -2713,7 +2720,7 @@
                     <div style="font-size: 0.9rem; margin-top: 0.5rem;">✨ 空白がある行は自動でコメントに設定済み。ドラッグ&ドロップで親子関係を変更可能：</div>
                 </div>
                 
-                <div style="display: flex; flex-direction: column; gap: 1.5rem; padding: 1.5rem; background: #f0f2f5; border-radius: 12px;" id="preview-container">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; padding: 1rem; background: #f0f2f5; border-radius: 12px;" id="preview-container" class="preview-grid">
             `;
             
             previewTasks.forEach((task, index) => {
@@ -2726,7 +2733,7 @@
                 const bgColor = isAutoComment ? '#f8fff9' : 'white';
                 
                 content += `
-                    <div style="border: 3px solid ${borderColor}; border-radius: 12px; background: ${bgColor}; transition: all 0.2s; cursor: move; margin-bottom: 1rem; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);" 
+                    <div style="border: 2px solid ${borderColor}; border-radius: 8px; background: ${bgColor}; transition: all 0.2s; cursor: move; overflow: hidden; box-shadow: 0 2px 6px rgba(0,0,0,0.1); height: fit-content;" 
                          draggable="true" 
                          ondragstart="handleDragStart(event, ${index})" 
                          ondragend="handleDragEnd(event)"
@@ -2737,41 +2744,41 @@
                          id="preview-item-${index}">
                         
                         <!-- ドラッグハンドル -->
-                        <div style="background: ${borderColor}; padding: 0.5rem; text-align: center; color: white; font-weight: bold; cursor: grab; user-select: none;">
-                            ⋮⋮⋮ ${isAutoComment ? '✨ 自動判定：コメント' : 'ドラッグしてコメント化'} ⋮⋮⋮
+                        <div style="background: ${borderColor}; padding: 0.4rem 0.8rem; text-align: center; color: white; font-weight: bold; cursor: grab; user-select: none; font-size: 0.85rem;">
+                            ⋮⋮ ${isAutoComment ? '✨ 自動コメント' : 'ドラッグ可能'} ⋮⋮
                         </div>
                         
                         <!-- テキスト表示エリア -->
-                        <div style="padding: 1.5rem; background: white;">
-                            <div style="font-family: monospace; background: #f8f9fa; padding: 1.5rem; border-radius: 8px; font-size: 1.1rem; min-height: 60px; word-break: break-all; line-height: 1.4; border-left: 4px solid ${borderColor};">
+                        <div style="padding: 0.75rem; background: white;">
+                            <div style="font-family: monospace; background: #f8f9fa; padding: 0.75rem; border-radius: 4px; font-size: 0.9rem; word-break: break-all; line-height: 1.3; border-left: 3px solid ${borderColor}; max-height: 4rem; overflow: hidden; text-overflow: ellipsis;">
                                 "${task.originalLine}"
                             </div>
                         </div>
                         
                         <!-- 設定エリア -->
-                        <div style="padding: 1.5rem; background: #fafafa; border-top: 1px solid #eee;">
-                            <div style="display: flex; flex-direction: column; gap: 1rem;">
-                                <div style="display: flex; align-items: center; gap: 1rem;">
-                                    <label style="font-weight: 600; min-width: 80px; color: #333;">種類:</label>
-                                    <select onchange="updateTaskType(${index}, this.value)" style="flex: 1; padding: 0.75rem; border: 2px solid #ddd; border-radius: 8px; font-size: 1rem; background: white;">
-                                        <option value="main" ${task.isMainTask ? 'selected' : ''}>📋 メインタスク</option>
+                        <div style="padding: 0.75rem; background: #fafafa; border-top: 1px solid #eee;">
+                            <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                    <label style="font-weight: 600; min-width: 60px; font-size: 0.85rem; color: #333;">種類:</label>
+                                    <select onchange="updateTaskType(${index}, this.value)" style="flex: 1; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; font-size: 0.9rem; background: white;">
+                                        <option value="main" ${task.isMainTask ? 'selected' : ''}>📋 メイン</option>
                                         <option value="comment" ${!task.isMainTask ? 'selected' : ''}>💬 コメント</option>
                                         <option value="skip">⏭️ スキップ</option>
                                     </select>
                                 </div>
                                 
                                 ${!task.isMainTask ? `
-                                <div style="display: flex; align-items: center; gap: 1rem;">
-                                    <label style="font-weight: 600; min-width: 80px; color: #333;">親タスク:</label>
-                                    <select onchange="updateTaskParent(${index}, this.value)" style="flex: 1; padding: 0.75rem; border: 2px solid #ddd; border-radius: 8px; font-size: 1rem; background: white;" id="parent-select-${index}">
+                                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                    <label style="font-weight: 600; min-width: 60px; font-size: 0.85rem; color: #333;">親:</label>
+                                    <select onchange="updateTaskParent(${index}, this.value)" style="flex: 1; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; font-size: 0.9rem; background: white;" id="parent-select-${index}">
                                         <option value="">－</option>
                                         ${mainTaskOptions}
                                     </select>
                                 </div>
                                 ` : `
-                                <div style="display: flex; align-items: center; gap: 1rem;">
-                                    <label style="font-weight: 600; min-width: 80px; color: #333;">ステータス:</label>
-                                    <select onchange="updateTaskColumn(${index}, this.value)" style="flex: 1; padding: 0.75rem; border: 2px solid #ddd; border-radius: 8px; font-size: 1rem; background: white;" id="column-select-${index}">
+                                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                    <label style="font-weight: 600; min-width: 60px; font-size: 0.85rem; color: #333;">列:</label>
+                                    <select onchange="updateTaskColumn(${index}, this.value)" style="flex: 1; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; font-size: 0.9rem; background: white;" id="column-select-${index}">
                                         ${columns.map(c => `<option value="${c.id}" ${task.columnId === c.id ? 'selected' : ''}>${c.title}</option>`).join('')}
                                     </select>
                                 </div>
