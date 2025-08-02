@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>🎯 営業タスク管理 - Kanbanボード</title>
-    <script src="https://unpkg.com/tesseract.js@4/dist/tesseract.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -81,30 +80,29 @@
         
         /* カンバンボード */
         .board-container {
-            padding: 0.25rem;
+            padding: 0.5rem;
             height: calc(100vh - 120px);
             overflow-x: auto;
         }
         
         .kanban-board {
             display: flex;
-            gap: 0.375rem;
+            gap: 0.5rem;
             min-width: max-content;
             height: 100%;
-            padding: 0 0.5rem;
         }
         
         .column {
-            background: var(--column-bg, linear-gradient(135deg, #f8f9fb 0%, #ebecf0 100%));
+            background: linear-gradient(135deg, #f8f9fb 0%, #ebecf0 100%);
             border-radius: 8px;
-            min-width: 180px;
-            max-width: 200px;
-            width: 190px;
+            min-width: 240px;
+            max-width: 280px;
+            width: 260px;
             display: flex;
             flex-direction: column;
             max-height: 100%;
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            border: 1px solid var(--column-border, rgba(255,255,255,0.2));
+            border: 1px solid rgba(255,255,255,0.2);
         }
         
         .column-header {
@@ -725,23 +723,13 @@
         
         .theme-modal-content {
             background-color: white;
-            margin: 2% auto;
-            padding: 0;
+            margin: 10% auto;
+            padding: 2rem;
             border-radius: 8px;
-            width: 95%;
-            max-width: 1200px;
-            max-height: 92vh;
+            width: 90%;
+            max-width: 400px;
             box-shadow: 0 4px 20px rgba(0,0,0,0.2);
             animation: slideIn 0.3s ease;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-        }
-        
-        .settings-modal-body {
-            flex: 1;
-            overflow-y: auto;
-            padding: 1.5rem;
         }
         
         .theme-grid {
@@ -803,6 +791,10 @@
         </div>
     </div>
     
+    <!-- 通知テストボタン -->
+    <div class="notification-test" onclick="testNotification()" title="通知テスト">
+        🔔 通知テスト
+    </div>
     
     <!-- 統計バー -->
     <div class="stats-bar">
@@ -818,13 +810,8 @@
             <span class="stat-number" id="completed-count">0</span>
             <span>完了済み</span>
         </div>
-        
-        <!-- カラム追加機能 -->
         <div style="margin-left: auto; display: flex; gap: 0.5rem; align-items: center;">
-            <input type="text" id="quick-column-name" placeholder="新カラム名" style="padding: 0.4rem; border: 1px solid #ddd; border-radius: 4px; font-size: 0.8rem; width: 120px;">
-            <button onclick="quickAddColumn()" style="padding: 0.4rem 0.8rem; background: #026aa7; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">＋カラム</button>
-            
-            <span style="font-size: 0.75rem; color: #5e6c84; margin-left: 1rem;">👥 担当者:</span>
+            <span style="font-size: 0.75rem; color: #5e6c84;">👥 担当者:</span>
             <div id="assignee-filter-container" style="position: relative;">
                 <button id="assignee-filter-btn" onclick="toggleAssigneeFilter()" style="font-size: 0.75rem; padding: 0.25rem 0.5rem; border: 1px solid #dfe1e6; border-radius: 3px; background: white; cursor: pointer; min-width: 120px; text-align: left; display: flex; justify-content: space-between; align-items: center;">
                     <span id="assignee-filter-text">全員</span>
@@ -937,36 +924,90 @@
         </div>
     </div>
     
+    <!-- テーマ選択モーダル -->
+    <div id="themeModal" class="theme-modal">
+        <div class="theme-modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">🎨 テーマカラーを選択</h3>
+                <button class="close-btn" onclick="closeThemeModal()">&times;</button>
+            </div>
+            <div class="theme-grid">
+                <div class="theme-option" style="background: linear-gradient(135deg, #026aa7, #0079bf)" onclick="setTheme('default', '#026aa7', '#0079bf', '#005a8b', '#e3f2fd')" data-theme="default">
+                    <div class="theme-name">デフォルト</div>
+                </div>
+                <div class="theme-option" style="background: linear-gradient(135deg, #667eea, #5a67d8)" onclick="setTheme('purple', '#667eea', '#5a67d8', '#4c51bf', '#eef2ff')" data-theme="purple">
+                    <div class="theme-name">パープル</div>
+                </div>
+                <div class="theme-option" style="background: linear-gradient(135deg, #e53e3e, #c53030)" onclick="setTheme('red', '#e53e3e', '#c53030', '#9b2c2c', '#fed7d7')" data-theme="red">
+                    <div class="theme-name">レッド</div>
+                </div>
+                <div class="theme-option" style="background: linear-gradient(135deg, #38a169, #2f855a)" onclick="setTheme('green', '#38a169', '#2f855a', '#276749', '#c6f6d5')" data-theme="green">
+                    <div class="theme-name">グリーン</div>
+                </div>
+                <div class="theme-option" style="background: linear-gradient(135deg, #d69e2e, #b7791f)" onclick="setTheme('orange', '#d69e2e', '#b7791f', '#975a16', '#fef5e7')" data-theme="orange">
+                    <div class="theme-name">オレンジ</div>
+                </div>
+                <div class="theme-option" style="background: linear-gradient(135deg, #3182ce, #2b6cb0)" onclick="setTheme('sky', '#3182ce', '#2b6cb0', '#2a4e7c', '#e0f2fe')" data-theme="sky">
+                    <div class="theme-name">スカイ</div>
+                </div>
+                <div class="theme-option" style="background: linear-gradient(135deg, #319795, #2c7a7b)" onclick="setTheme('teal', '#319795', '#2c7a7b', '#285e61', '#e6fffa')" data-theme="teal">
+                    <div class="theme-name">ティール</div>
+                </div>
+                <div class="theme-option" style="background: linear-gradient(135deg, #d53f8c, #b83280)" onclick="setTheme('pink', '#d53f8c', '#b83280', '#97266d', '#fed7e2')" data-theme="pink">
+                    <div class="theme-name">ピンク</div>
+                </div>
+                <div class="theme-option" style="background: linear-gradient(135deg, #805ad5, #6b46c1)" onclick="setTheme('violet', '#805ad5', '#6b46c1', '#553c9a', '#faf5ff')" data-theme="violet">
+                    <div class="theme-name">バイオレット</div>
+                </div>
+                <div class="theme-option" style="background: linear-gradient(135deg, #1a202c, #2d3748)" onclick="setTheme('black', '#1a202c', '#2d3748', '#171923', '#e2e8f0')" data-theme="black">
+                    <div class="theme-name">ブラック</div>
+                </div>
+            </div>
+        </div>
+    </div>
     
     <!-- 設定モーダル -->
     <div id="settingsModal" class="theme-modal">
         <div class="theme-modal-content">
-            <div class="modal-header" style="padding: 1rem 1.5rem; border-bottom: 1px solid #dfe1e6; flex-shrink: 0;">
+            <div class="modal-header">
                 <h3 class="modal-title">⚙️ 設定</h3>
                 <button class="close-btn" onclick="closeSettingsModal()">&times;</button>
             </div>
             
-            <div class="settings-modal-body">
-                <!-- 設定画面の説明 -->
-                <div style="background: #e3f2fd; padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem; border-left: 4px solid #026aa7;">
-                    <p style="margin: 0; color: #172b4d; font-size: 0.9rem;">
-                        💡 <strong>設定画面の使い方：</strong><br>
-                        • カラム管理：ワークフローのフェーズを追加・編集・削除できます<br>
-                        • カラー変更：各フェーズの色を変更してチーム識別を向上<br>
-                        • アラート設定：期限通知のタイミングをカスタマイズ
-                    </p>
-                </div>
-                
-                <!-- カラム・フェーズ管理 -->
+            <div style="padding: 1rem 0;">
+                <!-- テーマカラー設定 -->
                 <div class="setting-section">
-                    <h4 style="margin-bottom: 1rem; color: #172b4d;">📋 カラム・フェーズ管理</h4>
-                    <div id="column-manager">
-                        <div id="column-list" style="margin-bottom: 1rem;">
-                            <!-- 既存のカラムリストがここに表示される -->
+                    <h4 style="margin-bottom: 1rem; color: #172b4d;">🎨 テーマカラー</h4>
+                    <div class="theme-grid">
+                        <div class="theme-option" style="background: linear-gradient(135deg, #026aa7, #0079bf)" onclick="setTheme('default', '#026aa7', '#0079bf', '#005a8b', '#e3f2fd')" data-theme="default">
+                            <div class="theme-name">デフォルト</div>
                         </div>
-                        <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem;">
-                            <input type="text" id="new-column-name" placeholder="新しいカラム名（例：レビュー中、承認待ち）" style="flex: 1; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
-                            <button onclick="addColumn()" style="padding: 0.5rem 1rem; background: #026aa7; color: white; border: none; border-radius: 4px; cursor: pointer;">追加</button>
+                        <div class="theme-option" style="background: linear-gradient(135deg, #667eea, #5a67d8)" onclick="setTheme('purple', '#667eea', '#5a67d8', '#4c51bf', '#eef2ff')" data-theme="purple">
+                            <div class="theme-name">パープル</div>
+                        </div>
+                        <div class="theme-option" style="background: linear-gradient(135deg, #e53e3e, #c53030)" onclick="setTheme('red', '#e53e3e', '#c53030', '#9b2c2c', '#fed7d7')" data-theme="red">
+                            <div class="theme-name">レッド</div>
+                        </div>
+                        <div class="theme-option" style="background: linear-gradient(135deg, #38a169, #2f855a)" onclick="setTheme('green', '#38a169', '#2f855a', '#276749', '#c6f6d5')" data-theme="green">
+                            <div class="theme-name">グリーン</div>
+                        </div>
+                        <div class="theme-option" style="background: linear-gradient(135deg, #d69e2e, #b7791f)" onclick="setTheme('orange', '#d69e2e', '#b7791f', '#975a16', '#fef5e7')" data-theme="orange">
+                            <div class="theme-name">オレンジ</div>
+                        </div>
+                        <div class="theme-option" style="background: linear-gradient(135deg, #3182ce, #2b6cb0)" onclick="setTheme('sky', '#3182ce', '#2b6cb0', '#2a4e7c', '#e0f2fe')" data-theme="sky">
+                            <div class="theme-name">スカイ</div>
+                        </div>
+                        <div class="theme-option" style="background: linear-gradient(135deg, #319795, #2c7a7b)" onclick="setTheme('teal', '#319795', '#2c7a7b', '#285e61', '#e6fffa')" data-theme="teal">
+                            <div class="theme-name">ティール</div>
+                        </div>
+                        <div class="theme-option" style="background: linear-gradient(135deg, #d53f8c, #b83280)" onclick="setTheme('pink', '#d53f8c', '#b83280', '#97266d', '#fed7e2')" data-theme="pink">
+                            <div class="theme-name">ピンク</div>
+                        </div>
+                        <div class="theme-option" style="background: linear-gradient(135deg, #805ad5, #6b46c1)" onclick="setTheme('violet', '#805ad5', '#6b46c1', '#553c9a', '#faf5ff')" data-theme="violet">
+                            <div class="theme-name">バイオレット</div>
+                        </div>
+                        <div class="theme-option" style="background: linear-gradient(135deg, #1a202c, #2d3748)" onclick="setTheme('black', '#1a202c', '#2d3748', '#171923', '#e2e8f0')" data-theme="black">
+                            <div class="theme-name">ブラック</div>
                         </div>
                     </div>
                 </div>
@@ -989,97 +1030,6 @@
                         </label>
                     </div>
                 </div>
-                
-                <!-- 追加の設定項目を将来追加する場合はここに -->
-                <div class="setting-section" style="margin-top: 2rem;">
-                    <h4 style="margin-bottom: 1rem; color: #172b4d;">🎯 表示設定</h4>
-                    <div style="display: flex; flex-direction: column; gap: 0.5rem;">
-                        <label style="display: flex; align-items: center; gap: 0.5rem;">
-                            <input type="checkbox" id="show-task-count" checked>
-                            <span>カラムにタスク数を表示</span>
-                        </label>
-                        <label style="display: flex; align-items: center; gap: 0.5rem;">
-                            <input type="checkbox" id="compact-mode">
-                            <span>コンパクト表示モード</span>
-                        </label>
-                    </div>
-                </div>
-                
-                <div class="setting-section" style="margin-top: 2rem;">
-                    <h4 style="margin-bottom: 1rem; color: #172b4d;">📝 柔軟テキストインポート</h4>
-                    <div style="display: flex; flex-direction: column; gap: 1rem;">
-                        <textarea id="import-text" placeholder="シンプル形式でタスクを入力してください&#10;例:&#10;A社への提案書作成 @田中部長 2024-08-05&#10;  詳細確認事項&#10;  見積もり調整&#10;B社打ち合わせ!!! @佐藤課長&#10;  資料準備済み&#10;    会議室予約&#10;C社フォローアップ" style="width: 100%; height: 120px; padding: 0.75rem; border: 1px solid #ddd; border-radius: 4px; font-family: monospace; font-size: 0.9rem; resize: vertical;"></textarea>
-                        
-                        <!-- インポート設定 -->
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; padding: 1rem; background: #f8f9fa; border-radius: 4px;">
-                            <div>
-                                <label style="display: block; font-weight: 600; margin-bottom: 0.5rem;">デフォルト担当者:</label>
-                                <select id="default-assignee" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
-                                    <option value="">選択してください</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label style="display: block; font-weight: 600; margin-bottom: 0.5rem;">デフォルト期限:</label>
-                                <input type="date" id="default-deadline" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
-                            </div>
-                            <div>
-                                <label style="display: block; font-weight: 600; margin-bottom: 0.5rem;">デフォルト優先度:</label>
-                                <select id="default-priority" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
-                                    <option value="low">🟢 通常</option>
-                                    <option value="medium" selected>🟡 重要</option>
-                                    <option value="high">🔴 最重要</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label style="display: block; font-weight: 600; margin-bottom: 0.5rem;">配置先カラム:</label>
-                                <select id="default-column" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
-                                    <option value="todo">📋 TODO</option>
-                                </select>
-                            </div>
-                        </div>
-                        
-                        <div style="display: flex; gap: 0.5rem;">
-                            <button onclick="previewImport()" style="flex: 1; padding: 0.75rem; background: #0079bf; color: white; border: none; border-radius: 4px; cursor: pointer;">👁️ プレビュー</button>
-                            <button onclick="clearImportText()" style="padding: 0.75rem; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer;">🗑️ クリア</button>
-                            <label for="ocr-file-input" style="padding: 0.75rem; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; display: inline-block;">📸 OCR</label>
-                            <input type="file" id="ocr-file-input" accept="image/*" style="display: none;" onchange="handleOCRFile(this)">
-                        </div>
-                        
-                        <!-- OCR処理状況 -->
-                        <div id="ocr-status" style="display: none; margin-top: 1rem; padding: 0.75rem; border-radius: 4px; background: #e3f2fd; border: 1px solid #90caf9;">
-                            <div id="ocr-progress-text">📸 画像を解析中...</div>
-                            <div style="width: 100%; background: #f0f0f0; border-radius: 4px; height: 8px; margin-top: 0.5rem;">
-                                <div id="ocr-progress-bar" style="width: 0%; height: 100%; background: #2196f3; border-radius: 4px; transition: width 0.3s;"></div>
-                            </div>
-                        </div>
-                        
-                        <!-- プレビューエリア -->
-                        <div id="import-preview" style="display: none; border: 1px solid #ddd; border-radius: 4px; background: #f8f9fa;">
-                            <div style="padding: 1rem; border-bottom: 1px solid #ddd; background: #e3f2fd;">
-                                <h5 style="margin: 0; color: #172b4d;">📋 インポートプレビュー</h5>
-                            </div>
-                            <div id="preview-content" style="padding: 1rem; max-height: 300px; overflow-y: auto;"></div>
-                            <div style="padding: 1rem; border-top: 1px solid #ddd; display: flex; gap: 0.5rem;">
-                                <button onclick="executeImport()" style="flex: 1; padding: 0.75rem; background: #38a169; color: white; border: none; border-radius: 4px; cursor: pointer;">✅ インポート実行</button>
-                                <button onclick="hidePreview()" style="padding: 0.75rem; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer;">キャンセル</button>
-                            </div>
-                        </div>
-                        
-                        <div style="font-size: 0.8rem; color: #6c757d; line-height: 1.4;">
-                            <strong>📝 シンプル形式:</strong><br>
-                            • <strong>・</strong>で主タスク開始<br>
-                            • <strong>行頭スペース</strong>でサブタスク（コメントに自動追加）<br>
-                            • <strong>@担当者</strong>、<strong>日付</strong>、<strong>!!!</strong>高優先度を自動認識
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="setting-section" style="margin-top: 2rem;">
-                    <h4 style="margin-bottom: 1rem; color: #172b4d;">🔄 データ管理</h4>
-                    <div style="display: flex; flex-direction: column; gap: 1rem;">
-                        <button onclick="clearAllData()" style="padding: 0.75rem; background: #e53e3e; color: white; border: none; border-radius: 4px; cursor: pointer;">🗑️ 全データを削除</button>
-                    </div>
-                </div>
             </div>
         </div>
     </div>
@@ -1095,7 +1045,12 @@
         let assignees = JSON.parse(localStorage.getItem('taskAssignees') || '["田中部長", "佐藤課長", "鈴木主任", "山田さん"]');
         
         // カラム定義
-        let columns = JSON.parse(localStorage.getItem('kanbanColumns') || '[{"id":"todo","title":"📋 TODO","color":"#667eea"},{"id":"inprogress","title":"⚡ 進行中","color":"#f59e0b"},{"id":"waiting","title":"⏳ 連絡待ち","color":"#8b5cf6"},{"id":"done","title":"✅ Done","color":"#10b981"}]');
+        const columns = [
+            { id: 'todo', title: '📋 TODO', color: '#667eea' },
+            { id: 'inprogress', title: '⚡ 進行中', color: '#f59e0b' },
+            { id: 'waiting', title: '⏳ 連絡待ち', color: '#8b5cf6' },
+            { id: 'done', title: '✅ Done', color: '#10b981' }
+        ];
         
         // 日付・時間ユーティリティ
         function getCurrentDateTime() {
@@ -1818,15 +1773,9 @@
                 const columnEl = document.createElement('div');
                 columnEl.className = 'column';
                 columnEl.innerHTML = `
-                    <div class="column-header" style="background: ${column.color}; color: white;">
-                        <div class="column-title" ondblclick="editColumnNameInline('${column.id}', this)">${column.title}</div>
-                        <div style="display: flex; align-items: center; gap: 0.25rem;">
-                            <div class="column-count">${columnTasks.length}</div>
-                            <div style="display: flex; gap: 0.25rem;">
-                                <button onclick="editColumnNameInline('${column.id}')" style="background: rgba(255,255,255,0.2); border: none; cursor: pointer; color: white; font-size: 0.8rem; padding: 0.2rem; border-radius: 3px;" title="編集">✏️</button>
-                                ${columns.length > 2 ? `<button onclick="deleteColumnInline('${column.id}')" style="background: rgba(255,255,255,0.2); border: none; cursor: pointer; color: white; font-size: 0.8rem; padding: 0.2rem; border-radius: 3px;" title="削除">🗑️</button>` : ''}
-                            </div>
-                        </div>
+                    <div class="column-header">
+                        <div class="column-title">${column.title}</div>
+                        <div class="column-count">${columnTasks.length}</div>
                     </div>
                     <div class="column-content" 
                          ondragover="handleDragOver(event)"
@@ -2111,183 +2060,13 @@
         // 設定関連の関数
         function openSettingsModal() {
             document.getElementById('settingsModal').style.display = 'block';
+            updateThemeSelection();
             loadAlertSettings();
-            loadColumnManager();
-            loadImportDefaults();
-        }
-        
-        // インポート設定の初期化
-        function loadImportDefaults() {
-            // 担当者選択肢を更新
-            const assigneeSelect = document.getElementById('default-assignee');
-            assigneeSelect.innerHTML = '<option value="">選択してください</option>';
-            assignees.forEach(assignee => {
-                const option = document.createElement('option');
-                option.value = assignee;
-                option.textContent = assignee;
-                assigneeSelect.appendChild(option);
-            });
-            
-            // カラム選択肢を更新
-            const columnSelect = document.getElementById('default-column');
-            columnSelect.innerHTML = '';
-            columns.forEach(column => {
-                const option = document.createElement('option');
-                option.value = column.id;
-                option.textContent = column.title;
-                columnSelect.appendChild(option);
-            });
-            
-            // デフォルト期限を今日に設定
-            document.getElementById('default-deadline').value = new Date().toISOString().split('T')[0];
         }
         
         function closeSettingsModal() {
             document.getElementById('settingsModal').style.display = 'none';
             saveAlertSettings();
-        }
-        
-        // カラム管理機能
-        function loadColumnManager() {
-            const columnList = document.getElementById('column-list');
-            columnList.innerHTML = columns.map((column, index) => `
-                <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; padding: 0.5rem; background: #f8f9fa; border-radius: 4px;">
-                    <span style="flex: 1;">${column.title}</span>
-                    <input type="color" value="${column.color}" onchange="updateColumnColor(${index}, this.value)" style="width: 40px; height: 30px; border: none; border-radius: 4px;">
-                    <button onclick="editColumnName(${index})" style="padding: 0.25rem 0.5rem; background: #026aa7; color: white; border: none; border-radius: 4px; cursor: pointer;">編集</button>
-                    ${columns.length > 2 ? `<button onclick="deleteColumn(${index})" style="padding: 0.25rem 0.5rem; background: #e53e3e; color: white; border: none; border-radius: 4px; cursor: pointer;">削除</button>` : ''}
-                </div>
-            `).join('');
-        }
-        
-        function addColumn() {
-            const newColumnName = document.getElementById('new-column-name').value.trim();
-            if (!newColumnName) {
-                alert('カラム名を入力してください');
-                return;
-            }
-            
-            const newColumn = {
-                id: 'custom_' + Date.now(),
-                title: newColumnName,
-                color: '#026aa7'
-            };
-            
-            columns.push(newColumn);
-            localStorage.setItem('kanbanColumns', JSON.stringify(columns));
-            document.getElementById('new-column-name').value = '';
-            loadColumnManager();
-            renderBoard();
-        }
-        
-        function editColumnName(index) {
-            const newName = prompt('新しいカラム名を入力してください:', columns[index].title);
-            if (newName && newName.trim()) {
-                columns[index].title = newName.trim();
-                localStorage.setItem('kanbanColumns', JSON.stringify(columns));
-                loadColumnManager();
-                renderBoard();
-            }
-        }
-        
-        function updateColumnColor(index, color) {
-            columns[index].color = color;
-            localStorage.setItem('kanbanColumns', JSON.stringify(columns));
-            render(); // 即座に反映
-        }
-        
-        function deleteColumn(index) {
-            if (columns.length <= 2) {
-                alert('最低2つのカラムが必要です');
-                return;
-            }
-            
-            const columnToDelete = columns[index];
-            const tasksInColumn = tasks.filter(task => task.columnId === columnToDelete.id);
-            
-            if (tasksInColumn.length > 0) {
-                const moveToColumn = prompt(`このカラムには${tasksInColumn.length}個のタスクがあります。\n移動先のカラムIDを入力してください (${columns.filter((_, i) => i !== index).map(c => c.id).join(', ')}):`);
-                if (!moveToColumn) return;
-                
-                // タスクを移動
-                tasksInColumn.forEach(task => {
-                    task.columnId = moveToColumn;
-                });
-            }
-            
-            columns.splice(index, 1);
-            localStorage.setItem('kanbanColumns', JSON.stringify(columns));
-            saveTasks();
-            loadColumnManager();
-            render();
-        }
-        
-        // インライン カラム管理機能
-        function quickAddColumn() {
-            const newColumnName = document.getElementById('quick-column-name').value.trim();
-            if (!newColumnName) {
-                alert('カラム名を入力してください');
-                return;
-            }
-            
-            const newColumn = {
-                id: 'custom_' + Date.now(),
-                title: newColumnName,
-                color: '#026aa7'
-            };
-            
-            columns.push(newColumn);
-            localStorage.setItem('kanbanColumns', JSON.stringify(columns));
-            document.getElementById('quick-column-name').value = '';
-            render();
-        }
-        
-        function editColumnNameInline(columnId) {
-            const column = columns.find(c => c.id === columnId);
-            if (!column) return;
-            
-            const newName = prompt('新しいカラム名を入力してください:', column.title);
-            if (newName && newName.trim()) {
-                column.title = newName.trim();
-                localStorage.setItem('kanbanColumns', JSON.stringify(columns));
-                render();
-            }
-        }
-        
-        function deleteColumnInline(columnId) {
-            if (columns.length <= 2) {
-                alert('最低2つのカラムが必要です');
-                return;
-            }
-            
-            const columnIndex = columns.findIndex(c => c.id === columnId);
-            const columnToDelete = columns[columnIndex];
-            const tasksInColumn = tasks.filter(task => task.columnId === columnId);
-            
-            if (tasksInColumn.length > 0) {
-                const availableColumns = columns.filter(c => c.id !== columnId);
-                const moveToColumn = prompt(`このカラムには${tasksInColumn.length}個のタスクがあります。\n移動先のカラムを選択してください:\n\n${availableColumns.map((c, i) => `${i+1}. ${c.title} (${c.id})`).join('\n')}\n\n移動先の番号を入力してください:`);
-                
-                if (!moveToColumn) return;
-                
-                const selectedIndex = parseInt(moveToColumn) - 1;
-                if (selectedIndex >= 0 && selectedIndex < availableColumns.length) {
-                    // タスクを移動
-                    tasksInColumn.forEach(task => {
-                        task.columnId = availableColumns[selectedIndex].id;
-                    });
-                } else {
-                    alert('無効な選択です');
-                    return;
-                }
-            }
-            
-            if (confirm(`カラム「${columnToDelete.title}」を削除しますか？`)) {
-                columns.splice(columnIndex, 1);
-                localStorage.setItem('kanbanColumns', JSON.stringify(columns));
-                saveTasks();
-                render();
-            }
         }
         
         function loadAlertSettings() {
@@ -2306,19 +2085,7 @@
             localStorage.setItem('alertSettings', JSON.stringify(settings));
         }
         
-        // 管理者権限チェック（管理者のみブラックテーマ利用可能）
-        function isAdmin() {
-            // 実際の実装では認証システムと連携
-            return localStorage.getItem('userRole') === 'admin';
-        }
-        
         function setTheme(themeName, color, secondaryColor, darkColor, lightColor) {
-            // ブラックテーマは管理者のみ
-            if (themeName === 'black' && !isAdmin()) {
-                alert('ブラックテーマは管理者のみ利用可能です');
-                return;
-            }
-            
             document.documentElement.style.setProperty('--theme-color', color);
             document.documentElement.style.setProperty('--theme-color-secondary', secondaryColor);
             document.documentElement.style.setProperty('--theme-color-dark', darkColor);
@@ -2349,6 +2116,14 @@
             }));
             
             closeSettingsModal();
+            updateThemeSelection();
+        }
+        
+        function updateThemeSelection() {
+            const currentTheme = localStorage.getItem('selectedTheme') || 'default';
+            document.querySelectorAll('.theme-option').forEach(option => {
+                option.classList.toggle('active', option.dataset.theme === currentTheme);
+            });
         }
         
         function loadTheme() {
@@ -2581,609 +2356,9 @@
                 });
             }
             
-            // カラム追加でEnterキー対応
-            const quickColumnInput = document.getElementById('quick-column-name');
-            if (quickColumnInput) {
-                quickColumnInput.addEventListener('keypress', function(e) {
-                    if (e.key === 'Enter') {
-                        quickAddColumn();
-                    }
-                });
-            }
-            
             // ファイルドロップゾーンを設定
             setupFileDropZone();
         });
-        
-        // 柔軟テキストインポート機能
-        let previewTasks = [];
-        
-        function previewImport() {
-            const importText = document.getElementById('import-text').value.trim();
-            if (!importText) {
-                alert('インポートするテキストを入力してください');
-                return;
-            }
-            
-            // デフォルト設定を取得
-            const defaultAssignee = document.getElementById('default-assignee').value || '未設定';
-            const defaultDeadline = document.getElementById('default-deadline').value || new Date().toISOString().split('T')[0];
-            const defaultPriority = document.getElementById('default-priority').value;
-            const defaultColumn = document.getElementById('default-column').value;
-            
-            // テキストを行に分割
-            const lines = importText.split('\n');
-            previewTasks = [];
-            
-            // 各行を個別のアイテムとして処理
-            let lastMainTaskIndex = -1;
-            
-            lines.forEach((line, index) => {
-                if (!line.trim()) return; // 空行はスキップ
-                
-                const trimmedLine = line.trim();
-                let taskText = trimmedLine;
-                
-                // スマート判定：インデント（空白）があるかチェック
-                const hasIndent = line.match(/^\s+/);
-                const isMainTask = !hasIndent;
-                
-                // 担当者を抽出
-                const assigneeMatch = taskText.match(/@([^\s@]+)/g);
-                let assignee = defaultAssignee;
-                if (assigneeMatch && assigneeMatch.length > 0) {
-                    assignee = assigneeMatch[0].replace('@', '');
-                    taskText = taskText.replace(/@[^\s@]+/g, '').trim();
-                }
-                
-                // 日付を抽出
-                const dateMatches = taskText.match(/(\d{4}[-\/]\d{1,2}[-\/]\d{1,2})|(\d{1,2}[-\/]\d{1,2}[-\/]\d{4})|(\d{1,2}月\d{1,2}日)/g);
-                let deadline = defaultDeadline;
-                if (dateMatches && dateMatches.length > 0) {
-                    let dateStr = dateMatches[0];
-                    if (dateStr.includes('月') && dateStr.includes('日')) {
-                        const year = new Date().getFullYear();
-                        const month = dateStr.match(/(\d{1,2})月/)[1].padStart(2, '0');
-                        const day = dateStr.match(/(\d{1,2})日/)[1].padStart(2, '0');
-                        deadline = `${year}-${month}-${day}`;
-                    } else {
-                        const parts = dateStr.split(/[-\/]/);
-                        if (parts[0].length === 4) {
-                            deadline = `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`;
-                        } else {
-                            const year = parts[2].length === 4 ? parts[2] : new Date().getFullYear();
-                            deadline = `${year}-${parts[0].padStart(2, '0')}-${parts[1].padStart(2, '0')}`;
-                        }
-                    }
-                    taskText = taskText.replace(/(\d{4}[-\/]\d{1,2}[-\/]\d{1,2})|(\d{1,2}[-\/]\d{1,2}[-\/]\d{4})|(\d{1,2}月\d{1,2}日)/g, '').trim();
-                }
-                
-                // 優先度を抽出
-                let priority = defaultPriority;
-                if (taskText.match(/[!！]{2,}|高|緊急|urgent|URGENT|急/)) {
-                    priority = 'high';
-                    taskText = taskText.replace(/[!！]+|高|緊急|urgent|URGENT|急/g, '').trim();
-                } else if (taskText.match(/低|later|LATER|後で/)) {
-                    priority = 'low';
-                    taskText = taskText.replace(/低|later|LATER|後で/g, '').trim();
-                }
-                
-                taskText = taskText.replace(/\s+/g, ' ').trim();
-                
-                if (taskText && taskText.length > 1) {
-                    const task = {
-                        id: `preview_${index}`,
-                        title: taskText,
-                        assignee: assignee,
-                        deadline: deadline,
-                        priority: priority,
-                        columnId: defaultColumn,
-                        originalLine: line,
-                        lineIndex: index,
-                        isMainTask: isMainTask, // スマート判定結果
-                        parentIndex: isMainTask ? null : lastMainTaskIndex, // 自動で直前のメインタスクを親に設定
-                        isSkip: false // スキップするかどうか
-                    };
-                    
-                    // メインタスクの場合、インデックスを記録
-                    if (isMainTask) {
-                        lastMainTaskIndex = previewTasks.length; // 追加後のインデックス
-                    }
-                    
-                    previewTasks.push(task);
-                }
-            });
-            
-            // 新しいプレビュー表示
-            displayLineByLinePreview();
-        }
-        
-        function displayLineByLinePreview() {
-            const previewDiv = document.getElementById('import-preview');
-            const contentDiv = document.getElementById('preview-content');
-            
-            if (previewTasks.length === 0) {
-                alert('有効なタスクが見つかりませんでした。テキストを確認してください。');
-                return;
-            }
-            
-            let content = `
-                <div style="margin-bottom: 1rem; padding: 0.75rem; background: #e8f5e8; border-radius: 4px; color: #2f7d2f;">
-                    <strong>📝 ${previewTasks.length}行のテキストが見つかりました</strong>
-                    <div style="font-size: 0.9rem; margin-top: 0.5rem;">✨ 空白がある行は自動でコメントに設定済み。ドラッグ&ドロップで親子関係を変更可能：</div>
-                </div>
-                
-                <div style="display: flex; flex-direction: column; gap: 0.5rem;" id="preview-container">
-            `;
-            
-            previewTasks.forEach((task, index) => {
-                const mainTaskOptions = previewTasks.map((t, i) => 
-                    i < index ? `<option value="${i}" ${task.parentIndex === i ? 'selected' : ''}>📋 ${t.title.substring(0, 30)}${t.title.length > 30 ? '...' : ''}</option>` : ''
-                ).join('');
-                
-                const isAutoComment = !task.isMainTask && task.parentIndex !== null;
-                const borderColor = isAutoComment ? '#28a745' : '#ddd';
-                const bgColor = isAutoComment ? '#f8fff9' : 'white';
-                
-                content += `
-                    <div style="border: 2px solid ${borderColor}; border-radius: 6px; padding: 0.75rem; background: ${bgColor}; transition: all 0.2s; cursor: move;" 
-                         draggable="true" 
-                         ondragstart="handleDragStart(event, ${index})" 
-                         ondragend="handleDragEnd(event)"
-                         ondragover="handleDragOver(event)" 
-                         ondrop="handleDrop(event, ${index})"
-                         ondragenter="handleDragEnter(event)"
-                         ondragleave="handleDragLeave(event)"
-                         id="preview-item-${index}">
-                        ${isAutoComment ? '<div style="font-size: 0.8rem; color: #28a745; margin-bottom: 0.5rem;">✨ 自動判定：コメント</div>' : ''}
-                        <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 0.5rem; align-items: center;">
-                            <div style="font-family: monospace; background: #f8f9fa; padding: 0.5rem; border-radius: 4px; font-size: 0.9rem; position: relative;">
-                                <div style="position: absolute; left: 0.25rem; top: 0.25rem; font-size: 0.7rem; color: #666;">⋮⋮</div>
-                                <div style="margin-left: 1rem;">"${task.originalLine}"</div>
-                            </div>
-                            <div>
-                                <select onchange="updateTaskType(${index}, this.value)" style="width: 100%; padding: 0.4rem; border: 1px solid #ddd; border-radius: 4px;">
-                                    <option value="main" ${task.isMainTask ? 'selected' : ''}>📋 メインタスク</option>
-                                    <option value="comment" ${!task.isMainTask ? 'selected' : ''}>💬 コメント</option>
-                                    <option value="skip">⏭️ スキップ</option>
-                                </select>
-                            </div>
-                            <div>
-                                <select onchange="updateTaskParent(${index}, this.value)" style="width: 100%; padding: 0.4rem; border: 1px solid #ddd; border-radius: 4px;" ${task.isMainTask ? 'disabled' : ''} id="parent-select-${index}">
-                                    <option value="">－</option>
-                                    ${mainTaskOptions}
-                                </select>
-                            </div>
-                            <div>
-                                <select onchange="updateTaskColumn(${index}, this.value)" style="width: 100%; padding: 0.4rem; border: 1px solid #ddd; border-radius: 4px;" ${!task.isMainTask ? 'disabled' : ''} id="column-select-${index}">
-                                    ${columns.map(c => `<option value="${c.id}" ${task.columnId === c.id ? 'selected' : ''}>${c.title}</option>`).join('')}
-                                </select>
-                            </div>
-                        </div>
-                    </div>
-                `;
-            });
-            
-            content += `
-                </div>
-                <div style="margin-top: 1rem; padding: 0.75rem; background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 4px; font-size: 0.9rem;">
-                    <strong>💡 使い方：</strong><br>
-                    • <strong>✨ 自動判定</strong>：空白がある行は自動でコメントに設定され、直前のメインタスクが親に設定されます<br>
-                    • <strong>🖱️ ドラッグ&ドロップ</strong>：任意の行をメインタスクにドラッグしてコメントに変更<br>
-                    • <strong>📋 メインタスク</strong>：独立したタスクカードとして作成<br>
-                    • <strong>💬 コメント</strong>：指定したメインタスクにコメントとして追加<br>
-                    • <strong>⏭️ スキップ</strong>：インポート時に無視
-                </div>
-            `;
-            
-            contentDiv.innerHTML = content;
-            previewDiv.style.display = 'block';
-        }
-        
-        function updateTaskType(index, type) {
-            if (previewTasks[index]) {
-                previewTasks[index].isMainTask = (type === 'main');
-                previewTasks[index].isSkip = (type === 'skip');
-                
-                // 親選択とカラム選択の有効/無効を切り替え
-                const parentSelect = document.getElementById(`parent-select-${index}`);
-                const columnSelect = document.getElementById(`column-select-${index}`);
-                
-                if (type === 'main') {
-                    parentSelect.disabled = true;
-                    parentSelect.value = '';
-                    columnSelect.disabled = false;
-                } else if (type === 'comment') {
-                    parentSelect.disabled = false;
-                    columnSelect.disabled = true;
-                } else { // skip
-                    parentSelect.disabled = true;
-                    columnSelect.disabled = true;
-                }
-            }
-        }
-        
-        function updateTaskParent(index, parentIndex) {
-            if (previewTasks[index]) {
-                previewTasks[index].parentIndex = parentIndex ? parseInt(parentIndex) : null;
-            }
-        }
-        
-        function updateTaskColumn(index, columnId) {
-            if (previewTasks[index]) {
-                previewTasks[index].columnId = columnId;
-            }
-        }
-        
-        // ドラッグ&ドロップ機能
-        let draggedIndex = -1;
-        
-        function handleDragStart(event, index) {
-            draggedIndex = index;
-            event.dataTransfer.effectAllowed = 'move';
-            event.target.style.opacity = '0.6';
-        }
-        
-        function handleDragEnd(event) {
-            event.target.style.opacity = '1';
-            draggedIndex = -1;
-        }
-        
-        function handleDragOver(event) {
-            event.preventDefault();
-            event.dataTransfer.dropEffect = 'move';
-        }
-        
-        function handleDragEnter(event) {
-            event.preventDefault();
-            if (event.target.closest('[id^="preview-item-"]')) {
-                event.target.closest('[id^="preview-item-"]').style.backgroundColor = '#e3f2fd';
-            }
-        }
-        
-        function handleDragLeave(event) {
-            if (event.target.closest('[id^="preview-item-"]')) {
-                const item = event.target.closest('[id^="preview-item-"]');
-                const itemIndex = parseInt(item.id.split('-')[2]);
-                const task = previewTasks[itemIndex];
-                const isAutoComment = !task.isMainTask && task.parentIndex !== null;
-                item.style.backgroundColor = isAutoComment ? '#f8fff9' : 'white';
-            }
-        }
-        
-        function handleDrop(event, targetIndex) {
-            event.preventDefault();
-            
-            if (draggedIndex === targetIndex || draggedIndex === -1) {
-                // 元に戻す
-                event.target.closest('[id^="preview-item-"]').style.opacity = '1';
-                return;
-            }
-            
-            const draggedTask = previewTasks[draggedIndex];
-            const targetTask = previewTasks[targetIndex];
-            
-            // ドラッグされたタスクをコメントに変更し、ターゲットタスクを親に設定
-            if (targetTask.isMainTask) {
-                draggedTask.isMainTask = false;
-                draggedTask.parentIndex = targetIndex;
-                
-                // UIを更新
-                displayLineByLinePreview();
-                
-                alert(`💬 "${draggedTask.title}"を"${targetTask.title}"のコメントに設定しました`);
-            } else {
-                alert('⚠️ コメントを別のコメントにドロップすることはできません。メインタスクにドロップしてください。');
-            }
-            
-            draggedIndex = -1;
-        }
-        
-        function displayPreview() {
-            const previewDiv = document.getElementById('import-preview');
-            const contentDiv = document.getElementById('preview-content');
-            
-            if (previewTasks.length === 0) {
-                alert('有効なタスクが見つかりませんでした。テキストを確認してください。');
-                return;
-            }
-            
-            // プロジェクトごとにグループ化
-            const projectGroups = {};
-            previewTasks.forEach(task => {
-                const projectKey = task.project || '未分類';
-                if (!projectGroups[projectKey]) {
-                    projectGroups[projectKey] = [];
-                }
-                projectGroups[projectKey].push(task);
-            });
-            
-            let content = `
-                <div style="margin-bottom: 1rem; padding: 0.75rem; background: #e8f5e8; border-radius: 4px; color: #2f7d2f;">
-                    <strong>✅ ${previewTasks.length}個のタスクが見つかりました</strong>
-                    ${Object.keys(projectGroups).length > 1 ? `<span style="margin-left: 1rem; font-size: 0.9rem;">(${Object.keys(projectGroups).length}プロジェクト)</span>` : ''}
-                </div>
-            `;
-            
-            Object.entries(projectGroups).forEach(([project, tasks]) => {
-                content += `
-                    <div style="margin-bottom: 1.5rem;">
-                        ${project !== '未分類' ? `<div style="background: #0079bf; color: white; padding: 0.5rem 1rem; border-radius: 4px 4px 0 0; font-weight: bold;">📁 ${project} プロジェクト</div>` : ''}
-                        ${tasks.map((task, index) => {
-                            const taskIndex = previewTasks.indexOf(task);
-                            const indentStyle = task.indentLevel > 0 ? `margin-left: ${task.indentLevel * 20}px; border-left: 2px solid #0079bf;` : '';
-                            const parentInfo = task.parentId ? `<span style="font-size: 0.7rem; color: #6c757d;">↳ 子タスク</span>` : '';
-                            
-                            return `
-                                <div style="border: 1px solid #ddd; border-radius: 4px; margin-bottom: 0.5rem; overflow: hidden; ${indentStyle}">
-                                    <div style="background: #f8f9fa; padding: 0.5rem; border-bottom: 1px solid #ddd; font-size: 0.8rem; color: #6c757d;">
-                                        元のテキスト: "${task.originalLine}" ${parentInfo}
-                                    </div>
-                                    <div style="padding: 0.75rem;">
-                                        <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 0.5rem; align-items: center; margin-bottom: 0.75rem;">
-                                            <div>
-                                                <input type="text" value="${task.title}" onchange="updatePreviewTask(${taskIndex}, 'title', this.value)" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px; font-weight: bold;">
-                                                ${task.tags.length > 0 ? `<div style="font-size: 0.8rem; color: #0079bf; margin-top: 0.25rem;">${task.tags.join(' ')}</div>` : ''}
-                                            </div>
-                                            <div>
-                                                <select onchange="updatePreviewTask(${taskIndex}, 'assignee', this.value)" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
-                                                    <option value="未設定" ${task.assignee === '未設定' ? 'selected' : ''}>未設定</option>
-                                                    ${assignees.map(a => `<option value="${a}" ${task.assignee === a ? 'selected' : ''}>${a}</option>`).join('')}
-                                                </select>
-                                            </div>
-                                            <div>
-                                                <input type="date" value="${task.deadline}" onchange="updatePreviewTask(${taskIndex}, 'deadline', this.value)" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
-                                            </div>
-                                            <div>
-                                                <select onchange="updatePreviewTask(${taskIndex}, 'priority', this.value)" style="width: 100%; padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
-                                                    <option value="low" ${task.priority === 'low' ? 'selected' : ''}>🟢 通常</option>
-                                                    <option value="medium" ${task.priority === 'medium' ? 'selected' : ''}>🟡 重要</option>
-                                                    <option value="high" ${task.priority === 'high' ? 'selected' : ''}>🔴 最重要</option>
-                                                </select>
-                                            </div>
-                                        </div>
-                                        ${task.subTasks && task.subTasks.length > 0 ? `
-                                            <div style="margin-top: 0.75rem; padding: 0.5rem; background: #f0f8ff; border: 1px solid #bee5eb; border-radius: 4px;">
-                                                <div style="font-size: 0.8rem; font-weight: bold; color: #0c5460; margin-bottom: 0.5rem;">📝 サブタスク/コメント (${task.subTasks.length}件)</div>
-                                                ${task.subTasks.map((subTask, subIndex) => `
-                                                    <div style="font-size: 0.85rem; color: #495057; margin-bottom: 0.25rem; padding-left: 1rem; border-left: 2px solid #17a2b8;">
-                                                        • ${subTask}
-                                                    </div>
-                                                `).join('')}
-                                                <div style="font-size: 0.75rem; color: #6c757d; margin-top: 0.5rem;">
-                                                    ※ これらはタスクのコメントとして自動追加されます
-                                                </div>
-                                            </div>
-                                        ` : ''}
-                                        <div style="display: flex; gap: 0.5rem; align-items: center; margin-top: 0.75rem;">
-                                            <select onchange="updatePreviewTask(${taskIndex}, 'columnId', this.value)" style="padding: 0.5rem; border: 1px solid #ddd; border-radius: 4px;">
-                                                ${columns.map(c => `<option value="${c.id}" ${task.columnId === c.id ? 'selected' : ''}>${c.title}</option>`).join('')}
-                                            </select>
-                                            <button onclick="removePreviewTask(${taskIndex})" style="padding: 0.5rem; background: #e53e3e; color: white; border: none; border-radius: 4px; cursor: pointer;">🗑️ 削除</button>
-                                        </div>
-                                    </div>
-                                </div>
-                            `;
-                        }).join('')}
-                    </div>
-                `;
-            });
-            
-            contentDiv.innerHTML = content;
-            previewDiv.style.display = 'block';
-        }
-        
-        function updatePreviewTask(index, field, value) {
-            if (previewTasks[index]) {
-                previewTasks[index][field] = value;
-            }
-        }
-        
-        function removePreviewTask(index) {
-            if (confirm('このタスクを削除しますか？')) {
-                previewTasks.splice(index, 1);
-                displayPreview();
-            }
-        }
-        
-        function executeImport() {
-            if (previewTasks.length === 0) {
-                alert('インポートするタスクがありません');
-                return;
-            }
-            
-            let importedCount = 0;
-            const taskIdMap = {}; // インデックスと実際のタスクIDのマッピング
-            
-            // まずメインタスクを作成
-            previewTasks.forEach((previewTask, index) => {
-                if (previewTask.isSkip || !previewTask.isMainTask) return;
-                
-                // 担当者をリストに追加（存在しない場合）
-                if (previewTask.assignee !== '未設定' && !assignees.includes(previewTask.assignee)) {
-                    assignees.push(previewTask.assignee);
-                    localStorage.setItem('taskAssignees', JSON.stringify(assignees));
-                }
-                
-                const taskId = Date.now() + index;
-                taskIdMap[index] = taskId;
-                
-                const newTask = {
-                    id: taskId,
-                    title: previewTask.title,
-                    deadline: new Date(`${previewTask.deadline}T17:00`).toISOString(),
-                    priority: previewTask.priority,
-                    assignees: [previewTask.assignee],
-                    assignee: previewTask.assignee,
-                    memo: `インポート: ${new Date().toLocaleDateString()}`,
-                    columnId: previewTask.columnId,
-                    completed: false,
-                    createdAt: new Date().toISOString(),
-                    comments: [],
-                    originalLine: previewTask.originalLine
-                };
-                
-                tasks.push(newTask);
-                importedCount++;
-            });
-            
-            // 次にコメントを追加
-            previewTasks.forEach((previewTask, index) => {
-                if (previewTask.isSkip || previewTask.isMainTask) return;
-                if (previewTask.parentIndex === null) return;
-                
-                const parentTaskId = taskIdMap[previewTask.parentIndex];
-                if (!parentTaskId) return;
-                
-                const parentTask = tasks.find(t => t.id === parentTaskId);
-                if (parentTask) {
-                    parentTask.comments.push({
-                        id: Date.now() + index,
-                        author: previewTask.assignee,
-                        text: `📝 ${previewTask.title}`,
-                        timestamp: new Date().toISOString(),
-                        isImportedComment: true
-                    });
-                }
-            });
-            
-            if (importedCount > 0) {
-                saveTasks();
-                render();
-                document.getElementById('import-text').value = '';
-                hidePreview();
-                
-                const commentCount = previewTasks.filter(t => !t.isMainTask && !t.isSkip).length;
-                let message = `✅ ${importedCount}個のタスクをインポートしました！`;
-                if (commentCount > 0) {
-                    message += `\n💬 ${commentCount}個のコメントも追加されました。`;
-                }
-                alert(message);
-            }
-        }
-        
-        function hidePreview() {
-            document.getElementById('import-preview').style.display = 'none';
-            previewTasks = [];
-        }
-        
-        function clearImportText() {
-            document.getElementById('import-text').value = '';
-        }
-        
-        // OCR機能
-        async function handleOCRFile(input) {
-            const file = input.files[0];
-            if (!file) return;
-            
-            // ファイルサイズチェック (10MB制限)
-            if (file.size > 10 * 1024 * 1024) {
-                alert('ファイルサイズが大きすぎます (最大10MB)');
-                return;
-            }
-            
-            try {
-                showOCRProgress();
-                const text = await performOCR(file);
-                hideOCRProgress();
-                
-                if (text.trim()) {
-                    // 既存のテキストに追加
-                    const currentText = document.getElementById('import-text').value;
-                    const separator = currentText ? '\n\n' : '';
-                    document.getElementById('import-text').value = currentText + separator + '--- OCRから認識 ---\n' + text;
-                    
-                    // 成功メッセージ
-                    alert(`✅ OCR完了！\n認識されたテキストをインポート欄に追加しました。\n\n認識文字数: ${text.length}文字`);
-                } else {
-                    alert('テキストを認識できませんでした。\n画像が不鮮明であるか、文字が含まれていない可能性があります。');
-                }
-            } catch (error) {
-                hideOCRProgress();
-                console.error('OCR Error:', error);
-                alert('OCR処理でエラーが発生しました。\n画像ファイルを確認してください。');
-            }
-            
-            // ファイル選択をリセット
-            input.value = '';
-        }
-        
-        async function performOCR(file) {
-            return new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onload = async function(e) {
-                    try {
-                        updateOCRProgress(10, '📸 画像を読み込み中...');
-                        
-                        const { data: { text } } = await Tesseract.recognize(
-                            e.target.result,
-                            'jpn+eng', // 日本語と英語を認識
-                            {
-                                logger: m => {
-                                    if (m.status === 'recognizing text') {
-                                        const progress = Math.round(m.progress * 90) + 10; // 10-100%の範囲
-                                        updateOCRProgress(progress, `🔍 テキスト認識中... ${Math.round(m.progress * 100)}%`);
-                                    }
-                                }
-                            }
-                        );
-                        
-                        updateOCRProgress(100, '✅ 認識完了！');
-                        resolve(text);
-                    } catch (error) {
-                        reject(error);
-                    }
-                };
-                reader.onerror = () => reject(new Error('ファイル読み込みエラー'));
-                reader.readAsDataURL(file);
-            });
-        }
-        
-        function showOCRProgress() {
-            document.getElementById('ocr-status').style.display = 'block';
-            updateOCRProgress(0, '📸 OCR処理を開始中...');
-        }
-        
-        function updateOCRProgress(percentage, message) {
-            document.getElementById('ocr-progress-bar').style.width = percentage + '%';
-            document.getElementById('ocr-progress-text').textContent = message;
-        }
-        
-        function hideOCRProgress() {
-            setTimeout(() => {
-                document.getElementById('ocr-status').style.display = 'none';
-            }, 2000);
-        }
-        
-        function clearAllData() {
-            if (confirm('本当に全データを削除しますか？この操作は取り消せません。')) {
-                if (confirm('最終確認：全てのタスク、カラム設定、担当者情報が削除されます。続行しますか？')) {
-                    localStorage.removeItem('salesTasksKanban');
-                    localStorage.removeItem('kanbanColumns');
-                    localStorage.removeItem('taskAssignees');
-                    localStorage.removeItem('alertSettings');
-                    localStorage.removeItem('selectedTheme');
-                    localStorage.removeItem('themeColors');
-                    
-                    // デフォルト状態にリセット
-                    tasks = [];
-                    columns = [
-                        { id: 'todo', title: '📋 TODO', color: '#667eea' },
-                        { id: 'inprogress', title: '⚡ 進行中', color: '#f59e0b' },
-                        { id: 'waiting', title: '⏳ 連絡待ち', color: '#8b5cf6' },
-                        { id: 'done', title: '✅ Done', color: '#10b981' }
-                    ];
-                    assignees = ["田中部長", "佐藤課長", "鈴木主任", "山田さん"];
-                    
-                    localStorage.setItem('kanbanColumns', JSON.stringify(columns));
-                    localStorage.setItem('taskAssignees', JSON.stringify(assignees));
-                    
-                    render();
-                    closeSettingsModal();
-                    alert('全データを削除しました');
-                }
-            }
-        }
         
         // 初期化実行
         init();
