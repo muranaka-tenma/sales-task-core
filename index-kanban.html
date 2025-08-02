@@ -807,8 +807,13 @@
             <span class="stat-number" id="completed-count">0</span>
             <span>完了済み</span>
         </div>
+        
+        <!-- カラム追加機能 -->
         <div style="margin-left: auto; display: flex; gap: 0.5rem; align-items: center;">
-            <span style="font-size: 0.75rem; color: #5e6c84;">👥 担当者:</span>
+            <input type="text" id="quick-column-name" placeholder="新カラム名" style="padding: 0.4rem; border: 1px solid #ddd; border-radius: 4px; font-size: 0.8rem; width: 120px;">
+            <button onclick="quickAddColumn()" style="padding: 0.4rem 0.8rem; background: #026aa7; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 0.8rem;">＋カラム</button>
+            
+            <span style="font-size: 0.75rem; color: #5e6c84; margin-left: 1rem;">👥 担当者:</span>
             <div id="assignee-filter-container" style="position: relative;">
                 <button id="assignee-filter-btn" onclick="toggleAssigneeFilter()" style="font-size: 0.75rem; padding: 0.25rem 0.5rem; border: 1px solid #dfe1e6; border-radius: 3px; background: white; cursor: pointer; min-width: 120px; text-align: left; display: flex; justify-content: space-between; align-items: center;">
                     <span id="assignee-filter-text">全員</span>
@@ -1712,8 +1717,14 @@
                 columnEl.className = 'column';
                 columnEl.innerHTML = `
                     <div class="column-header">
-                        <div class="column-title">${column.title}</div>
-                        <div class="column-count">${columnTasks.length}</div>
+                        <div class="column-title" ondblclick="editColumnNameInline('${column.id}', this)">${column.title}</div>
+                        <div style="display: flex; align-items: center; gap: 0.25rem;">
+                            <div class="column-count">${columnTasks.length}</div>
+                            <div style="display: flex; gap: 0.25rem;">
+                                <button onclick="editColumnNameInline('${column.id}')" style="background: none; border: none; cursor: pointer; color: #5e6c84; font-size: 0.8rem; padding: 0.2rem;" title="編集">✏️</button>
+                                ${columns.length > 2 ? `<button onclick="deleteColumnInline('${column.id}')" style="background: none; border: none; cursor: pointer; color: #e53e3e; font-size: 0.8rem; padding: 0.2rem;" title="削除">🗑️</button>` : ''}
+                            </div>
+                        </div>
                     </div>
                     <div class="column-content" 
                          ondragover="handleDragOver(event)"
@@ -2079,7 +2090,75 @@
             localStorage.setItem('kanbanColumns', JSON.stringify(columns));
             saveTasks();
             loadColumnManager();
-            renderBoard();
+            render();
+        }
+        
+        // インライン カラム管理機能
+        function quickAddColumn() {
+            const newColumnName = document.getElementById('quick-column-name').value.trim();
+            if (!newColumnName) {
+                alert('カラム名を入力してください');
+                return;
+            }
+            
+            const newColumn = {
+                id: 'custom_' + Date.now(),
+                title: newColumnName,
+                color: '#026aa7'
+            };
+            
+            columns.push(newColumn);
+            localStorage.setItem('kanbanColumns', JSON.stringify(columns));
+            document.getElementById('quick-column-name').value = '';
+            render();
+        }
+        
+        function editColumnNameInline(columnId) {
+            const column = columns.find(c => c.id === columnId);
+            if (!column) return;
+            
+            const newName = prompt('新しいカラム名を入力してください:', column.title);
+            if (newName && newName.trim()) {
+                column.title = newName.trim();
+                localStorage.setItem('kanbanColumns', JSON.stringify(columns));
+                render();
+            }
+        }
+        
+        function deleteColumnInline(columnId) {
+            if (columns.length <= 2) {
+                alert('最低2つのカラムが必要です');
+                return;
+            }
+            
+            const columnIndex = columns.findIndex(c => c.id === columnId);
+            const columnToDelete = columns[columnIndex];
+            const tasksInColumn = tasks.filter(task => task.columnId === columnId);
+            
+            if (tasksInColumn.length > 0) {
+                const availableColumns = columns.filter(c => c.id !== columnId);
+                const moveToColumn = prompt(`このカラムには${tasksInColumn.length}個のタスクがあります。\n移動先のカラムを選択してください:\n\n${availableColumns.map((c, i) => `${i+1}. ${c.title} (${c.id})`).join('\n')}\n\n移動先の番号を入力してください:`);
+                
+                if (!moveToColumn) return;
+                
+                const selectedIndex = parseInt(moveToColumn) - 1;
+                if (selectedIndex >= 0 && selectedIndex < availableColumns.length) {
+                    // タスクを移動
+                    tasksInColumn.forEach(task => {
+                        task.columnId = availableColumns[selectedIndex].id;
+                    });
+                } else {
+                    alert('無効な選択です');
+                    return;
+                }
+            }
+            
+            if (confirm(`カラム「${columnToDelete.title}」を削除しますか？`)) {
+                columns.splice(columnIndex, 1);
+                localStorage.setItem('kanbanColumns', JSON.stringify(columns));
+                saveTasks();
+                render();
+            }
         }
         
         function loadAlertSettings() {
@@ -2369,6 +2448,16 @@
                         } else {
                             this.value = '';
                         }
+                    }
+                });
+            }
+            
+            // カラム追加でEnterキー対応
+            const quickColumnInput = document.getElementById('quick-column-name');
+            if (quickColumnInput) {
+                quickColumnInput.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') {
+                        quickAddColumn();
                     }
                 });
             }
