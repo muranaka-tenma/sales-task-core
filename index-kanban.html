@@ -795,13 +795,19 @@
         }
         
         /* プレビューグリッドのレスポンシブ対応 */
-        @media (max-width: 1400px) {
+        @media (max-width: 1600px) {
+            .preview-grid {
+                grid-template-columns: 1fr 1fr 1fr !important;
+            }
+        }
+        
+        @media (max-width: 1200px) {
             .preview-grid {
                 grid-template-columns: 1fr 1fr !important;
             }
         }
         
-        @media (max-width: 900px) {
+        @media (max-width: 800px) {
             .preview-grid {
                 grid-template-columns: 1fr !important;
             }
@@ -2701,7 +2707,7 @@
                     <div style="font-size: 0.9rem; margin-top: 0.5rem;">✨ インデント行は自動でコメントに設定済み（半角スペース2個以上・全角スペース・タブ）。ドラッグ&ドロップで親子関係を変更可能：</div>
                 </div>
                 
-                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; padding: 1rem; background: #f0f2f5; border-radius: 12px;" id="preview-container" class="preview-grid">
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 1rem; padding: 1rem; background: #f0f2f5; border-radius: 12px;" id="preview-container" class="preview-grid">
             `;
             
             previewTasks.forEach((task, index) => {
