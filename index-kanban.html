@@ -1032,7 +1032,7 @@
                         <div style="display: flex; gap: 0.5rem;">
                             <button onclick="previewImport()" style="flex: 1; padding: 0.75rem; background: #0079bf; color: white; border: none; border-radius: 4px; cursor: pointer;">👁️ プレビュー</button>
                             <button onclick="clearImportText()" style="padding: 0.75rem; background: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer;">🗑️ クリア</button>
-                            <label for="ocr-file-input" style="padding: 0.75rem; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; display: inline-block;">📸 OCR</label>
+                            <label for="ocr-file-input" style="padding: 0.75rem; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; display: inline-block;" title="精度に制約あり。手書きや複雑なレイアウトは非推奨">📸 OCR(β)</label>
                             <input type="file" id="ocr-file-input" accept="image/*" style="display: none;" onchange="handleOCRFile(this)">
                         </div>
                         
@@ -1060,7 +1060,11 @@
                             <strong>📝 シンプル形式:</strong><br>
                             • <strong>・</strong>で主タスク開始<br>
                             • <strong>行頭スペース</strong>でサブタスク（コメントに自動追加）<br>
-                            • <strong>@担当者</strong>、<strong>日付</strong>、<strong>!!!</strong>高優先度を自動認識
+                            • <strong>@担当者</strong>、<strong>日付</strong>、<strong>!!!</strong>高優先度を自動認識<br><br>
+                            <strong>📸 OCR注意事項:</strong><br>
+                            • プリント文字のみ推奨（手書きは精度低）<br>
+                            • シンプルなレイアウトのみ（表・図は非推奨）<br>
+                            • 認識後は手動で確認・修正が必要
                         </div>
                     </div>
                 </div>
@@ -3157,6 +3161,8 @@
         
         function clearImportText() {
             document.getElementById('import-text').value = '';
+            document.getElementById('ocr-file-input').value = ''; // OCRファイルもクリア
+            hidePreview(); // プレビューも同時にクリア
         }
         
         // OCR機能
@@ -3212,7 +3218,11 @@
                                         const progress = Math.round(m.progress * 90) + 10; // 10-100%の範囲
                                         updateOCRProgress(progress, `🔍 テキスト認識中... ${Math.round(m.progress * 100)}%`);
                                     }
-                                }
+                                },
+                                // 精度改善のための設定
+                                tessedit_pageseg_mode: Tesseract.PSM.AUTO,
+                                tessedit_char_whitelist: '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZあ-ゖア-ヶ一-龯!@#$%^&*()_+-=[]{}|;:,.<>?/~ 　「」、。',
+                                preserve_interword_spaces: '1'
                             }
                         );
                         
